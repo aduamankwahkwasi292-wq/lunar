@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar — AI Tutor</title>
+    <link rel="stylesheet" href="static/style.css?v=20260621c">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700&display=swap">
+    <link rel="shortcut icon" href="static/icon.png" type="image/x-icon">
+</head>
+
+<body>
+
+    <!-- Nebula Background -->
+
+    <!-- ── Tooltip (single shared instance) ──────────── -->
+    <div class="sidebar-tooltip" id="sidebar-tooltip"></div>
+
+    <!-- ── Collapse Toggle Tab ────────────────────────── -->
+    <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6" />
+        </svg>
+    </button>
+
+    <!-- ── Floating Sidebar ───────────────────────────── -->
+    <header class="topbar" id="topbar">
+
+        <!-- Brand logo -->
+
+        <div class="topbar-divider"></div>
+
+        <!-- Nav links -->
+        <nav class="topbar-nav">
+            <a class="topbar-link active" data-tip="Home" href="/">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+            </a>
+
+        </nav>
+
+        <div class="topbar-divider"></div>
+
+        <!-- Action buttons -->
+        <div class="topbar-actions">
+
+            <!-- Theme picker -->
+            <button class="topbar-icon-btn" id="theme-btn" data-tip="Change Theme">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+            </button>
+
+            <!-- How to use -->
+            <button class="topbar-icon-btn" id="howto-btn" data-tip="How to Use">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+            </button>
+
+            <!-- Notifications -->
+            <button class="topbar-icon-btn" id="notif-btn" data-tip="Notifications">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+            </button>
+
+            <div class="topbar-divider"></div>
+
+            <!-- Avatar -->
+            <div class="topbar-avatar" id="avatar-btn" data-tip="Change Avatar">LU</div>
+        </div>
+    </header>
+
+    <!-- ── Theme Panel ─────────────────────────────────── -->
+    <div class="sidebar-panel" id="theme-panel">
+        <button class="panel-close" id="close-theme-panel">✕</button>
+        <h4>Accent Color</h4>
+        <div class="theme-grid">
+            <div class="theme-swatch active" data-theme="theme-purple">
+                <div class="swatch-dot" style="background:#7c5cfc;"></div>
+                <span>Purple</span>
+            </div>
+            <div class="theme-swatch" data-theme="theme-emerald">
+                <div class="swatch-dot" style="background:#10b981;"></div>
+                <span>Emerald</span>
+            </div>
+            <div class="theme-swatch" data-theme="theme-rose">
+                <div class="swatch-dot" style="background:#f43f5e;"></div>
+                <span>Rose</span>
+            </div>
+            <div class="theme-swatch" data-theme="theme-amber">
+                <div class="swatch-dot" style="background:#f59e0b;"></div>
+                <span>Amber</span>
+            </div>
+            <div class="theme-swatch" data-theme="theme-cyan">
+                <div class="swatch-dot" style="background:#06b6d4;"></div>
+                <span>Cyan</span>
+            </div>
+            <div class="theme-swatch" data-theme="theme-light">
+                <div class="swatch-dot" style="background:#f0f0f0; border-color: #ccc;"></div>
+                <span>Light</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Avatar Panel ────────────────────────────────── -->
+    <div class="sidebar-panel" id="avatar-panel">
+        <button class="panel-close" id="close-avatar-panel">✕</button>
+        <h4>Choose Avatar</h4>
+        <div class="avatar-grid">
+            <div class="avatar-opt active" data-avatar="emoji" data-val="🌙">🌙</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="⚡">⚡</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="🔮">🔮</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="🦊">🦊</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="🐺">🐺</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="🦋">🦋</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="🌊">🌊</div>
+            <div class="avatar-opt" data-avatar="emoji" data-val="🎯">🎯</div>
+        </div>
+        <h4 style="margin-top:12px;">Initials</h4>
+        <div class="avatar-initials-row">
+            <div class="avatar-init-opt" data-avatar="init" data-val="LU" style="background:var(--primary);">LU</div>
+            <div class="avatar-init-opt" data-avatar="init" data-val="ME" style="background:#10b981;">ME</div>
+            <div class="avatar-init-opt" data-avatar="init" data-val="AI" style="background:#f43f5e;">AI</div>
+            <div class="avatar-init-opt" data-avatar="init" data-val="★" style="background:#f59e0b;">★</div>
+            <div class="avatar-init-opt" data-avatar="init" data-val="∞" style="background:#06b6d4;">∞</div>
+            <div class="avatar-init-opt" data-avatar="init" data-val="?" style="background:#7c5cfc;">?</div>
+        </div>
+    </div>
+
+    <!-- ── How to Use Panel ────────────────────────────── -->
+    <div class="sidebar-panel" id="howto-panel">
+        <button class="panel-close" id="close-howto-panel">✕</button>
+        <h4>How to Use Lunar</h4>
+        <div class="howto-steps">
+            <div class="howto-step">
+                <div class="howto-num">1</div>
+                <div class="howto-text"><strong>Upload your slides</strong>Drop any PDF, PPTX, DOCX, or image — even
+                    photos of slides. Lunar reads every slide (OCR included).</div>
+            </div>
+            <div class="howto-step">
+                <div class="howto-num">2</div>
+                <div class="howto-text"><strong>Step into the classroom</strong>Your real slide opens on the board and
+                    Lunar teaches it one at a time — clear explanations and worked examples, only from your content.</div>
+            </div>
+            <div class="howto-step">
+                <div class="howto-num">3</div>
+                <div class="howto-text"><strong>Highlight → Explain or Solve</strong>Select any part of the slide or the
+                    lesson, then tap <em>Explain</em> for a closer look, or <em>Solve</em> to work a question step by
+                    step. You can also just ask Lunar anything in the box.</div>
+            </div>
+            <div class="howto-step">
+                <div class="howto-num">4</div>
+                <div class="howto-text"><strong>Find anything</strong>Type a slide number or any keyword in the search
+                    box to jump straight to that slide.</div>
+            </div>
+            <div class="howto-step">
+                <div class="howto-num">5</div>
+                <div class="howto-text"><strong>At your pace, on your device</strong>Hit <em>Stop</em> to cut a reply
+                    short, use Previous / Next to move. Everything runs locally — no keys, no internet, nothing leaves
+                    your machine.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Main ────────────────────────────────────────── -->
+    <main class="main" id="main-content">
+        <div class="app-container">
+
+            <!-- Hero -->
+            <div class="hero">
+                <div class="hero-eyebrow">
+                    <span class="hero-eyebrow-dot"></span>
+                </div>
+                <p class="hero-sub">Upload your slides to start class. Larger files take a little longer to read. Lunar
+                    can make mistakes — double-check anything important(especially math).</p>
+            </div>
+
+            <!-- Step 1: Upload -->
+            <section class="card" id="step-upload">
+                <div class="card-label">
+                    <span class="card-label-num">1</span>
+                    Upload your slides
+                </div>
+                <div class="upload-zone" id="upload-zone">
+                    <div class="upload-icon-wrap">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="16 16 12 12 8 16" />
+                            <line x1="12" y1="12" x2="12" y2="21" />
+                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                        </svg>
+                    </div>
+                    <p class="upload-text">Drop your slides here</p>
+                    <p class="upload-hint">PDF, PowerPoint, Word, or images — even photos of slides. Lunar reads every
+                        slide and teaches them to you, one at a time.</p>
+                    <div class="upload-formats-row">
+                        <span class="format-pill">PDF</span>
+                        <span class="format-pill">DOCX</span>
+                        <span class="format-pill">TXT</span>
+                        <span class="format-pill">PPTX</span>
+                        <span class="format-pill">XLSX</span>
+                        <span class="format-pill">CSV</span>
+                        <span class="format-pill">Images (OCR)</span>
+                    </div>
+                    <input type="file" id="file-input" hidden>
+                </div>
+                <div class="file-info" id="file-info" style="display:none;">
+                    <span class="file-name" id="file-name"></span>
+                    <span class="file-size" id="file-size"></span>
+                    <button class="btn-icon" id="remove-file" title="Remove file">&times;</button>
+                </div>
+                <div class="text-preview" id="text-preview" style="display:none;">
+                    <h4>Extracted Text Preview:</h4>
+                    <pre id="preview-content"></pre>
+                </div>
+            </section>
+
+            <!-- On-device AI status + resume classroom -->
+            <section class="card" id="step-config">
+                <div class="card-label">
+                    <span class="card-label-num">2</span>
+                    On-device AI
+                </div>
+                <div id="ai-status-chip" class="ai-status-chip">
+                    <span class="status-dot"></span> Checking on-device AI…
+                </div>
+                <small class="help-text" style="display:block;margin:-4px 0 8px;">
+                    Lunar runs entirely on your machine — local model, no API keys, no limits, nothing
+                    leaves your device. Upload your slides and step into the classroom.
+                </small>
+                <button class="btn btn-generate" id="return-classroom-btn" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span class="btn-text">Return to Classroom</span>
+                </button>
+            </section>
+
+            <!-- Feature Highlights -->
+            <div class="features-row">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                    <div class="feature-title">Taught slide by slide</div>
+                    <div class="feature-desc">Your real slide opens on the board and Lunar explains it like a professor —
+                        grounded only in your slides, nothing invented.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+                        </svg>
+                    </div>
+                    <div class="feature-title">Highlight → Explain or Solve</div>
+                    <div class="feature-desc">Select any part of a slide or the lesson; Lunar breaks it down — or solves
+                        it step by step. Search to jump to any slide.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                    </div>
+                    <div class="feature-title">Stays on your device</div>
+                    <div class="feature-desc">The model runs locally — no keys, no internet. Nothing is uploaded; nothing
+                        leaves your machine.</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ── Classroom ───────────────────────────────────── -->
+    <div id="classroom" class="classroom" style="display:none;">
+        <!-- full-screen futuristic classroom; the hologram board is wired below -->
+        <div class="cr-room-wrap">
+            <img class="cr-room" src="/static/U7.png" alt="" draggable="false">
+            <div class="cr-board" id="cr-board"></div>
+            <div class="cr-status" id="cr-status">Preparing the lesson…</div>
+        </div>
+
+        <div class="cr-topbar">
+            <div class="cr-brand">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+                <span>Lunar's Classroom</span>
+                <span class="cr-file" id="cr-filename"></span>
+            </div>
+            <div class="cr-progress">
+                <span class="cr-slide-label" id="cr-slide-label">Slide 1 of 1</span>
+                <div class="cr-dots" id="cr-dots"></div>
+            </div>
+            <div class="cr-actions">
+                <div class="cr-search">
+                    <svg class="cr-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="M21 21l-4.3-4.3" />
+                    </svg>
+                    <input type="text" id="cr-search-input" placeholder="Find anything…" autocomplete="off">
+                    <div class="cr-search-results" id="cr-search-results"></div>
+                </div>
+                <button class="cr-pill cr-pill-ghost" id="cr-exit-btn" title="Leave classroom">Exit</button>
+            </div>
+        </div>
+
+        <div class="cr-dock">
+            <div class="cr-bubbles" id="cr-bubbles"></div>
+            <div class="cr-inputbar">
+                <input type="text" id="cr-input" placeholder="Type your answer, or ask Lunar anything…"
+                    autocomplete="off">
+                <button class="cr-icon-btn cr-send" id="cr-send-btn" title="Send">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="19" x2="12" y2="5" />
+                        <polyline points="5 12 12 5 19 12" />
+                    </svg>
+                </button>
+                <button class="cr-stop-btn" id="cr-stop-btn" title="Stop Lunar" style="display:none;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                    Stop
+                </button>
+                <button class="cr-next-btn cr-prev-btn" id="cr-prev-btn" title="Previous slide">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    Previous
+                </button>
+                <button class="cr-next-btn" id="cr-next-btn" title="Next slide">
+                    Next slide
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- floating Explain / Solve buttons for a highlighted portion -->
+        <div id="cr-sel-tools" class="cr-sel-tools" style="display:none;">
+            <button type="button" id="cr-explain-btn" class="cr-sel-btn">Explain</button>
+            <button type="button" id="cr-solve-btn" class="cr-sel-btn cr-sel-btn-solve">Solve</button>
+        </div>
+    </div>
+
+    <script>
+        // ── Sidebar system ────────────────────────────────────
+        (function () {
+            const topbar = document.getElementById('topbar');
+            const toggle = document.getElementById('sidebar-toggle');
+            const mainEl = document.getElementById('main-content');
+            const tooltip = document.getElementById('sidebar-tooltip');
+
+            let sidebarVisible = true;
+            let tooltipTimer = null;
+            let activePanel = null;
+
+            // ── Sticky on scroll (position:fixed already handles this) ──
+            // Nothing needed — fixed positioning is inherently sticky.
+
+            // ── Collapse / expand ─────────────────────────────
+            toggle.addEventListener('click', () => {
+                sidebarVisible = !sidebarVisible;
+                topbar.classList.toggle('hidden', !sidebarVisible);
+                toggle.classList.toggle('collapsed', !sidebarVisible);
+                mainEl.classList.toggle('expanded', !sidebarVisible);
+                closeAllPanels();
+            });
+
+            // ── Tooltips ──────────────────────────────────────
+            function showTooltip(el) {
+                const tip = el.dataset.tip;
+                if (!tip) return;
+                const rect = el.getBoundingClientRect();
+                tooltip.textContent = tip;
+                tooltip.style.top = (rect.top + rect.height / 2 - 12) + 'px';
+                tooltip.classList.add('visible');
+            }
+            function hideTooltip() {
+                tooltip.classList.remove('visible');
+            }
+
+            document.querySelectorAll('[data-tip]').forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    clearTimeout(tooltipTimer);
+                    tooltipTimer = setTimeout(() => showTooltip(el), 300);
+                });
+                el.addEventListener('mouseleave', () => {
+                    clearTimeout(tooltipTimer);
+                    hideTooltip();
+                });
+            });
+
+            // ── Panel management ──────────────────────────────
+            function openPanel(id) {
+                closeAllPanels();
+                const panel = document.getElementById(id);
+                if (panel) { panel.classList.add('open'); activePanel = id; }
+            }
+            function closeAllPanels() {
+                document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('open'));
+                activePanel = null;
+            }
+
+            // Close panels when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.sidebar-panel') &&
+                    !e.target.closest('#theme-btn') &&
+                    !e.target.closest('#howto-btn') &&
+                    !e.target.closest('#avatar-btn')) {
+                    closeAllPanels();
+                }
+            });
+
+            // ── Theme panel ───────────────────────────────────
+            document.getElementById('theme-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                activePanel === 'theme-panel' ? closeAllPanels() : openPanel('theme-panel');
+            });
+            document.getElementById('close-theme-panel').addEventListener('click', closeAllPanels);
+
+            const themes = ['theme-purple', 'theme-emerald', 'theme-rose', 'theme-amber', 'theme-cyan', 'theme-light'];
+            document.querySelectorAll('.theme-swatch').forEach(sw => {
+                sw.addEventListener('click', () => {
+                    const t = sw.dataset.theme;
+                    themes.forEach(th => document.body.classList.remove(th));
+                    document.body.classList.add(t);
+                    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+                    sw.classList.add('active');
+                    try { localStorage.setItem('lunar-theme', t); } catch (e) { }
+                });
+            });
+            // Restore theme
+            try {
+                const saved = localStorage.getItem('lunar-theme');
+                if (saved) {
+                    themes.forEach(th => document.body.classList.remove(th));
+                    document.body.classList.add(saved);
+                    document.querySelectorAll('.theme-swatch').forEach(s => {
+                        s.classList.toggle('active', s.dataset.theme === saved);
+                    });
+                }
+            } catch (e) { }
+
+            // ── Avatar panel ──────────────────────────────────
+            document.getElementById('avatar-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                activePanel === 'avatar-panel' ? closeAllPanels() : openPanel('avatar-panel');
+            });
+            document.getElementById('close-avatar-panel').addEventListener('click', closeAllPanels);
+
+            const avatarDisplay = document.getElementById('avatar-btn');
+            const brandDisplay = document.getElementById('brand-btn');
+
+            function setAvatar(val, type) {
+                document.querySelectorAll('.avatar-opt, .avatar-init-opt').forEach(o => o.classList.remove('active'));
+                const opt = document.querySelector(`[data-val="${val}"]`);
+                if (opt) opt.classList.add('active');
+
+                if (type === 'emoji') {
+                    avatarDisplay.innerHTML = `<span style="font-size:1.1rem;">${val}</span>`;
+                    brandDisplay.innerHTML = `<span style="font-size:1.1rem;">${val}</span>`;
+                } else {
+                    avatarDisplay.textContent = val;
+                    brandDisplay.textContent = val;
+                }
+                try { localStorage.setItem('lunar-avatar', JSON.stringify({ val, type })); } catch (e) { }
+            }
+
+            document.querySelectorAll('.avatar-opt, .avatar-init-opt').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    setAvatar(opt.dataset.val, opt.dataset.avatar);
+                });
+            });
+
+            // Restore avatar
+            try {
+                const saved = JSON.parse(localStorage.getItem('lunar-avatar'));
+                if (saved) setAvatar(saved.val, saved.type);
+            } catch (e) { }
+
+            // ── How to use panel ──────────────────────────────
+            document.getElementById('howto-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                activePanel === 'howto-panel' ? closeAllPanels() : openPanel('howto-panel');
+            });
+            document.getElementById('close-howto-panel').addEventListener('click', closeAllPanels);
+
+            // ── Nav active state ──────────────────────────────
+            document.querySelectorAll('.topbar-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    const href = this.getAttribute('href');
+                    if (href && href !== '#') return;  // real links (e.g. Home) navigate
+                    e.preventDefault();
+                    document.querySelectorAll('.topbar-link').forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // ── Notification dot (cosmetic) ───────────────────
+            const notifBtn = document.getElementById('notif-btn');
+            notifBtn.style.position = 'relative';
+            const dot = document.createElement('span');
+            dot.style.cssText = 'position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:#ef4444;';
+            notifBtn.appendChild(dot);
+            notifBtn.addEventListener('click', () => { dot.style.display = 'none'; });
+
+        })();
+    </script>
+
+    <script src="static/nebula.js?v=20260621c"></script>
+    <script src="static/script.js?v=20260621c"></script>
+</body>
+
+</html>

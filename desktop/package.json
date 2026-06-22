@@ -1,0 +1,70 @@
+{
+  "name": "lunar-desktop",
+  "version": "1.0.0",
+  "description": "Lunar — your private, on-device AI study classroom.",
+  "author": "Kwasi Kwakye & Alex Nyanteng",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.7.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.lunar.classroom",
+    "productName": "Lunar",
+    "copyright": "Copyright © 2026 Kwasi Kwakye & Alex Nyanteng",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "splash.html"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/lunar-backend",
+        "to": "backend"
+      },
+      {
+        "from": "../models",
+        "to": "models",
+        "filter": ["**/*.gguf"]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Lunar-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Lunar"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.education",
+      "artifactName": "Lunar-${version}.${ext}"
+    },
+    "dmg": {
+      "title": "Lunar ${version}"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Education",
+      "artifactName": "Lunar-${version}.${ext}",
+      "maintainer": "Kwasi Kwakye & Alex Nyanteng"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: radial-gradient(120% 120% at 50% 0%, #15131f 0%, #0a0a0f 70%);
+      color: #f0eeff; font-family: 'DM Sans', system-ui, sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; user-select: none; -webkit-user-select: none;
+    }
+    .moon {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #cfc8ff, #7f77dd 60%, #4b46a0);
+      box-shadow: 0 0 40px rgba(127,119,221,0.55), inset -10px -8px 0 0 #0a0a0f;
+      animation: float 2.4s ease-in-out infinite;
+    }
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    .brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; letter-spacing: -0.5px; }
+    .sub { font-size: 13px; color: rgba(240,238,255,0.5); }
+    .bar { width: 180px; height: 3px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 40%; border-radius: 99px;
+      background: linear-gradient(90deg, transparent, #7f77dd, transparent);
+      animation: slide 1.3s ease-in-out infinite; }
+    @keyframes slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+  </style>
+</head>
+<body>
+  <div class="moon"></div>
+  <div class="brand">Lunar</div>
+  <div class="bar"><i></i></div>
+  <div class="sub">Starting your private classroom…</div>
+</body>
+</html>

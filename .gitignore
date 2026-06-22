@@ -1,0 +1,30 @@
+# --- Lunar build & runtime artifacts ---
+
+# Bundled GGUF models (huge; fetched with scripts/fetch_models.py)
+models/
+*.gguf
+
+# PyInstaller output
+build/
+dist/
+*.spec.bak
+
+# Electron
+desktop/node_modules/
+desktop/release/
+desktop/dist/
+
+# Runtime user data (uploads, rendered slides, embedding cache)
+uploads/
+cache/
+*.part
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/.venv/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

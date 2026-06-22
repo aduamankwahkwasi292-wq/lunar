@@ -1,0 +1,614 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --lunar-bg: #0a0a0f;
+    --lunar-surface: #111118;
+    --lunar-card: #16161f;
+    --lunar-border: rgba(255, 255, 255, 0.07);
+    --lunar-purple: #7f77dd;
+    --lunar-purple-dim: rgba(127, 119, 221, 0.15);
+    --lunar-text: #f0eeff;
+    --lunar-muted: rgba(240, 238, 255, 0.45);
+    --lunar-accent: #afa9ec;
+  }
+
+  .page {
+    background: var(--lunar-bg);
+    min-height: 100vh;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--lunar-text);
+    overflow-x: hidden;
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--lunar-border);
+    position: relative;
+    top: 0;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--lunar-text);
+    letter-spacing: -0.5px;
+
+  }
+
+  .nav-cta {
+    background: var(--lunar-purple);
+    color: #fff;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .nav-cta:hover {
+    opacity: 0.85;
+  }
+
+  .hero {
+    padding: 90px 40px 70px;
+    max-width: 780px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--lunar-purple-dim);
+    border: 1px solid rgba(127, 119, 221, 0.3);
+    color: var(--lunar-accent);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--lunar-purple);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(42px, 7vw, 72px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 span {
+    color: var(--lunar-muted);
+  }
+
+  .hero p {
+    font-size: 17px;
+    color: var(--lunar-muted);
+    line-height: 1.7;
+    max-width: 480px;
+    margin: 0 auto 40px;
+    font-weight: 300;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .btn-primary {
+    background: var(--lunar-purple);
+    color: #fff;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.02);
+    opacity: 0.9;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--lunar-muted);
+    border: 1px solid var(--lunar-border);
+    padding: 14px 28px;
+    border-radius: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .btn-ghost:hover {
+    color: var(--lunar-text);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .preview {
+    margin: 60px auto 0;
+    max-width: 860px;
+    padding: 0 24px;
+  }
+
+  .preview-window {
+    background: var(--lunar-card);
+    border: 1px solid var(--lunar-border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .preview-bar {
+    background: var(--lunar-surface);
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--lunar-border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .dot.r {
+    background: #ff5f57;
+  }
+
+  .dot.y {
+    background: #febc2e;
+  }
+
+  .dot.g {
+    background: #28c840;
+  }
+
+  .preview-inner {
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .preview-card {
+    background: var(--lunar-surface);
+    border: 1px solid var(--lunar-border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .preview-card .card-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--lunar-purple);
+    margin-bottom: 12px;
+  }
+
+  .preview-card .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .preview-card p {
+    font-size: 12px;
+    color: var(--lunar-muted);
+    line-height: 1.6;
+  }
+
+  .q-item {
+    background: var(--lunar-purple-dim);
+    border: 1px solid rgba(127, 119, 221, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--lunar-accent);
+    margin-bottom: 8px;
+  }
+
+  .q-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .section {
+    padding: 80px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--lunar-purple);
+    margin-bottom: 20px;
+  }
+
+  .section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+
+  .section h2 span {
+    color: var(--lunar-muted);
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 48px;
+  }
+
+  .feature {
+    background: var(--lunar-card);
+    border: 1px solid var(--lunar-border);
+    border-radius: 14px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+
+  .feature:hover {
+    border-color: rgba(127, 119, 221, 0.35);
+  }
+
+  .feature-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--lunar-purple-dim);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 18px;
+  }
+
+  .feature h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .feature p {
+    font-size: 13px;
+    color: var(--lunar-muted);
+    line-height: 1.65;
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 48px;
+  }
+
+  .step {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    position: relative;
+    padding-bottom: 36px;
+  }
+
+  .step:last-child {
+    padding-bottom: 0;
+  }
+
+  .step-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .step-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--lunar-purple-dim);
+    border: 1px solid rgba(127, 119, 221, 0.3);
+    color: var(--lunar-purple);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-line {
+    width: 1px;
+    flex: 1;
+    background: var(--lunar-border);
+    margin-top: 8px;
+  }
+
+  .step:last-child .step-line {
+    display: none;
+  }
+
+  .step-content h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    padding-top: 6px;
+  }
+
+  .step-content p {
+    font-size: 14px;
+    color: var(--lunar-muted);
+    line-height: 1.7;
+  }
+
+  .cta-section {
+    margin: 20px 24px 60px;
+    background: var(--lunar-card);
+    border: 1px solid var(--lunar-border);
+    border-radius: 20px;
+    padding: 60px 40px;
+    text-align: center;
+  }
+
+  .cta-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin-bottom: 16px;
+  }
+
+  .cta-section p {
+    color: var(--lunar-muted);
+    font-size: 16px;
+    margin-bottom: 36px;
+  }
+
+  footer {
+    border-top: 1px solid var(--lunar-border);
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+  }
+
+  footer p {
+    font-size: 12px;
+    color: var(--lunar-muted);
+  }
+
+  @media (max-width: 640px) {
+    .features {
+      grid-template-columns: 1fr;
+    }
+
+    .preview-inner {
+      grid-template-columns: 1fr;
+    }
+
+    nav {
+      padding: 16px 20px;
+    }
+
+    .hero {
+      padding: 60px 20px 50px;
+    }
+  }
+</style>
+
+<div class="page">
+  <link rel="shortcut icon" href="static/icon.png" type="image/x-icon">
+  <nav>
+    <div class="nav-logo">Lunar</div>
+  </nav>
+
+  <p></p>
+
+  <div class="hero">
+    <div class="badge">
+      <div class="badge-dot"></div>
+      A product of KWASI KWAKYE AND ALEX NYANTENG
+    </div>
+    <h1>Study smarter.<br><span>Not harder.</span></h1>
+    <p>Upload your slides and step into Lunar's classroom. Your real slides open on the board, an AI tutor teaches them
+      one at a time, and you can highlight anything to have it explained or solved — 100% on your device.</p>
+    <div class="hero-actions">
+      <a href="/app" style="
+    display: inline-block;
+    padding: 12px 20px;
+    background-color: #6c5ce7;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+   " onmouseover="this.style.backgroundColor='#5a4bd1';" onmouseout="this.style.backgroundColor='#6c5ce7';">
+        Upload your slides
+      </a>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="preview-window">
+      <div class="preview-bar">
+        <div class="dot r"></div>
+        <div class="dot y"></div>
+        <div class="dot g"></div>
+      </div>
+      <div class="preview-inner">
+        <div class="preview-card">
+          <div class="card-label">Your slides</div>
+          <div class="card-title">Chapter 4: Cell Division</div>
+          <p>Mitosis, meiosis, chromosomes, and the cell cycle — 24 slides uploaded.</p>
+          <div style="margin-top:16px; display:flex; gap:6px; flex-wrap:wrap;">
+            <span
+              style="font-size:11px; background:rgba(127,119,221,0.1); border:1px solid rgba(127,119,221,0.2); color:var(--lunar-accent); padding:3px 10px; border-radius:100px;">PPTX</span>
+            <span
+              style="font-size:11px; background:rgba(127,119,221,0.1); border:1px solid rgba(127,119,221,0.2); color:var(--lunar-accent); padding:3px 10px; border-radius:100px;">24
+              slides</span>
+          </div>
+        </div>
+        <div class="preview-card">
+          <div class="card-label">On the board</div>
+          <div class="q-item">Slide 4 — Mitosis happens in four phases: prophase, metaphase, anaphase, telophase.</div>
+          <div class="q-item">Lunar teaches each slide like a professor — grounded in your notes</div>
+          <div class="q-item">Highlight anything → tap Explain or Solve</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Why Lunar</div>
+    <h2>Built for how<br><span>students actually learn.</span></h2>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📖</div>
+        <h3>Taught slide by slide</h3>
+        <p>Your real slide opens on the board and Lunar explains it like a professor — grounded only in your slides,
+          nothing made up.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✋</div>
+        <h3>Highlight → Explain or Solve</h3>
+        <p>Select any part of a slide or the lesson, then tap Explain for a closer look — or Solve to work a question
+          step by step.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <h3>100% on-device</h3>
+        <p>Runs entirely on your machine — no API keys, no internet, nothing ever leaves your computer.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="padding-top:0;">
+    <div class="section-label">How it works</div>
+    <h2>Three steps<br><span>to your private class.</span></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <h3>Upload your slides</h3>
+          <p>Drag in any lecture file — PDF, PowerPoint, Word, even photos of slides. Lunar reads every slide, OCR
+            included.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <h3>Step into the classroom</h3>
+          <p>Your real slide opens on the board and Lunar teaches it one at a time — clear explanations and worked
+            examples, grounded only in your content.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">3</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <h3>Highlight, ask, or jump anywhere</h3>
+          <p>Highlight any part of a slide or the lesson and tap <strong>Explain</strong> or <strong>Solve</strong>, ask
+            Lunar anything in your own words, or use <strong>Find anything</strong> to jump to any slide by number or
+            keyword. Hit <strong>Stop</strong> the moment you've heard enough.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <h2>Your private tutor<br>is ready.</h2>
+    <p>Free, on-device, no account. Just upload your slides and start learning.</p>
+    <a href="/app" style="
+    display: inline-block;
+    padding: 12px 20px;
+    background-color: #6c5ce7;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+   " onmouseover="this.style.backgroundColor='#5a4bd1';" onmouseout="this.style.backgroundColor='#6c5ce7';">
+      Upload my slides
+    </a>
+  </div>
+
+  <footer>
+    <div class="logo">Lunar</div>
+    <p>The new standard of AI intelligence for students.</p>
+  </footer>
+</div>

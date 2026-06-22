@@ -1,0 +1,111 @@
+name: Build Lunar installers
+
+# Builds the Windows / macOS / Linux installers and attaches them to the GitHub
+# Release. Publish a Release (or push a v* tag and publish it) and three
+# double-click installers appear on that release automatically.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:        # manual runs (artifacts only, no release attached)
+
+permissions:
+  contents: write           # needed to upload installers to the release
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # --- Python backend deps ---------------------------------------------------
+      # llama.cpp is built from source as a PORTABLE binary (GGML_NATIVE=OFF) so the
+      # shipped app runs on ANY CPU — not just the build runner's. (A -march=native
+      # or AVX-512 wheel crashes with "illegal instruction" on older CPUs.)
+      - name: Install Python deps
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements.txt
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            export CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_METAL=OFF"
+          else
+            export CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_AVX512=OFF"
+          fi
+          python -m pip install --force-reinstall --no-binary llama-cpp-python "llama-cpp-python>=0.3.2"
+
+      # --- Bundled GGUF models (cached so they download at most once) -----------
+      - name: Cache models
+        id: models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: gguf-models-${{ hashFiles('scripts/fetch_models.py') }}-v1
+
+      - name: Fetch models
+        if: steps.models.outputs.cache-hit != 'true'
+        run: python scripts/fetch_models.py
+
+      # --- Freeze the backend into the sidecar binary ---------------------------
+      - name: Freeze backend (PyInstaller)
+        run: pyinstaller lunar-backend.spec --noconfirm
+
+      # --- Keep the app version in step with the release tag --------------------
+      - name: Sync version to release tag
+        if: github.event_name == 'release'
+        working-directory: desktop
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
+      # --- Build the installer for this OS --------------------------------------
+      - name: Install Electron deps
+        working-directory: desktop
+        run: npm install
+
+      - name: Build installer
+        working-directory: desktop
+        env:
+          # Don't try to code-sign on CI (unsigned builds are fine for download).
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist
+
+      # --- Publish --------------------------------------------------------------
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunar-${{ matrix.os }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.dmg
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+          if-no-files-found: warn
+
+      - name: Attach installers to the release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/release/*.exe
+            desktop/release/*.dmg
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
