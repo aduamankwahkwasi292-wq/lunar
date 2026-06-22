@@ -47,6 +47,10 @@
         "from": "../models",
         "to": "models",
         "filter": ["**/*.gguf"]
+      },
+      {
+        "from": "icon.ico",
+        "to": "icon.ico"
       }
     ],
     "asar": true,

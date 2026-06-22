@@ -357,10 +357,11 @@ async def slide_text(session_id: str, idx: int):
     if idx in cache:
         return {"words": cache[idx]}
     try:
-        # One span per text LINE (not per word) so selection follows whole lines and
-        # doesn't bleed into the lines above/below when grabbing a sentence.
+        # One box PER WORD: the frontend overlays each word with an invisible span
+        # stretched to exactly cover it, so selection is character-precise (WPS-style)
+        # and grabs only what the user drags over — not the surrounding text.
         words = await asyncio.to_thread(
-            file_processor.pdf_page_lines, session["file_path"], slide.get("page", idx))
+            file_processor.pdf_page_words, session["file_path"], slide.get("page", idx))
     except Exception:
         words = []
     cache[idx] = words

@@ -1119,12 +1119,13 @@ input:focus, select:focus, textarea:focus {
 .cr-board .cr-slide { position: relative; width: fit-content; max-width: 100%; margin: 0 auto 10px; animation: crSlideIn .45s ease both; }
 .cr-board .cr-slide-img { width: 100%; height: auto; display: block; image-rendering: auto;
     user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
-/* Invisible, selectable text layer over the chalk slide: real words you can drag-
-   highlight like normal text. font-size is in cqw so each word fills its box at any size. */
+/* Invisible, selectable text layer over the chalk slide (PDF.js/WPS style): one span
+   per word, each stretched (scaleX, set in JS) to sit exactly over its real word so
+   drag-selection is character-precise and grabs only what's under the cursor. */
 .cr-board .cr-textlayer { position: absolute; inset: 0; container-type: inline-size;
     line-height: 1; user-select: text; -webkit-user-select: text; z-index: 3; }
 .cr-board .cr-textlayer span { position: absolute; color: transparent; white-space: pre;
-    overflow: hidden; cursor: text; transform-origin: 0 0; }
+    cursor: text; transform-origin: 0 0; }
 .cr-board .cr-textlayer span::selection { background: rgba(120, 220, 255, 0.45); color: transparent; }
 .cr-board .cr-textlayer span::-moz-selection { background: rgba(120, 220, 255, 0.45); color: transparent; }
 @keyframes crSlideIn { from { opacity: 0; } to { opacity: 1; } }

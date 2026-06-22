@@ -2718,10 +2718,12 @@ function crLoadImage(url) {
     });
 }
 
-// Fetch the slide's word boxes and overlay an invisible, selectable text layer on
-// top of the chalk image, so the real slide is highlightable like normal text.
-// `ar` is the image's natural aspect ratio (w/h); font-size in cqw makes each word
-// exactly as tall as its box at any display size, with zero per-frame relayout.
+// Overlay an invisible, selectable text layer on the chalk slide (PDF.js / WPS
+// style): one span per word, each MEASURED and stretched horizontally (scaleX) to
+// sit exactly over its real word. That alignment is what makes selection precise —
+// dragging grabs only the words under the cursor, never the surrounding text.
+// The measured transforms are baked into the HTML string so they survive the
+// streaming re-renders (and stay correct on resize, since every value is a ratio).
 async function crLoadSlideTextLayer(idx, ar, gen) {
     try {
         const res = await fetch(`${API_BASE}/api/classroom/slide_text/${state.sessionId}/${idx}`);
@@ -2730,19 +2732,43 @@ async function crLoadSlideTextLayer(idx, ar, gen) {
         if (gen !== cr.typeGen || !cr.slideFigureHTML || cr.slideHasLayer) return;
         const words = (data && data.words) || [];
         if (!words.length) return;
+        const liveFig = crEls.board.querySelector('.cr-slide');
+        if (!liveFig) return;
         const a = ar || 1;
-        const spans = words.map(w => {
-            const fs = (w.h * 100 / a).toFixed(3);
-            return `<span style="left:${(w.x * 100).toFixed(3)}%;top:${(w.y * 100).toFixed(3)}%;` +
-                `width:${(w.w * 100).toFixed(3)}%;height:${(w.h * 100).toFixed(3)}%;` +
-                `font-size:${fs}cqw">${escapeHtml(w.t)} </span>`;
-        }).join('');
-        cr.slideFigureHTML = cr.slideFigureHTML.replace(
-            '</figure>', `<div class="cr-textlayer">${spans}</div></figure>`);
+
+        // 1) Build the layer with each word positioned + sized to its box height,
+        //    then attach it live so we can measure each word's natural width.
+        const layer = document.createElement('div');
+        layer.className = 'cr-textlayer';
+        const els = words.map(w => {
+            const s = document.createElement('span');
+            s.textContent = w.t;
+            s.style.left = (w.x * 100).toFixed(3) + '%';
+            s.style.top = (w.y * 100).toFixed(3) + '%';
+            s.style.fontSize = (w.h * 100 / a).toFixed(3) + 'cqw';
+            layer.appendChild(s);
+            return s;
+        });
+        liveFig.appendChild(layer);
+        const layerW = layer.clientWidth || liveFig.clientWidth || 0;
+
+        // 2) Stretch each word to exactly cover its box (synchronous — no await, so a
+        //    streaming repaint can't wipe the layer mid-measure).
+        if (layerW > 10) {
+            for (let i = 0; i < words.length; i++) {
+                const natural = els[i].offsetWidth || 1;
+                const sx = Math.max(0.02, (words[i].w * layerW) / natural);
+                els[i].style.transform = 'scaleX(' + sx.toFixed(4) + ')';
+                els[i].textContent = words[i].t + ' ';   // space → clean selection text
+            }
+        }
+
+        // 3) Bake the measured layer into prefixHTML and drop the live probe.
+        const layerHTML = layer.outerHTML;
+        layer.remove();
+        cr.slideFigureHTML = cr.slideFigureHTML.replace('</figure>', layerHTML + '</figure>');
         cr.slideHasLayer = true;
         cr.prefixHTML = cr.slideFigureHTML + (cr.slideLinksHTML || '');
-        // If nothing is actively streaming, repaint now so the layer appears; while
-        // teaching/responding the next frame already reads the updated prefixHTML.
         if (cr.state !== 'teaching' && cr.state !== 'responding') {
             crRenderBoard(cr.boardRaw || '', false);
         }

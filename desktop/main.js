@@ -21,6 +21,13 @@ let mainWindow = null;
 let splash = null;
 let backendPort = 0;
 
+// Lunar's own icon for the window + taskbar (shipped as an extraResource in prod).
+function appIcon() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.ico')
+    : path.join(__dirname, 'icon.ico');
+}
+
 // ---- helpers --------------------------------------------------------------
 function getFreePort() {
   return new Promise((resolve, reject) => {
@@ -123,7 +130,7 @@ function killBackend() {
 function createSplash() {
   splash = new BrowserWindow({
     width: 460, height: 320, frame: false, resizable: false, center: true,
-    backgroundColor: '#0a0a0f', show: true,
+    backgroundColor: '#0a0a0f', show: true, icon: appIcon(),
   });
   splash.loadFile(path.join(__dirname, 'splash.html'));
 }
@@ -131,7 +138,7 @@ function createSplash() {
 function createMainWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1320, height: 860, minWidth: 980, minHeight: 640, show: false,
-    backgroundColor: '#0a0a0f', autoHideMenuBar: true,
+    backgroundColor: '#0a0a0f', autoHideMenuBar: true, icon: appIcon(),
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
   mainWindow.loadURL(`http://127.0.0.1:${port}/`);
@@ -186,6 +193,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
+    app.setAppUserModelId('com.lunar.classroom');   // Windows: own taskbar identity + icon
     createSplash();
     try {
       const port = await startBackend();

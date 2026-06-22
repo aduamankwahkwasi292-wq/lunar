@@ -4,9 +4,9 @@
 models/
 *.gguf
 
-# PyInstaller output
-build/
-dist/
+# PyInstaller output (root only — keep desktop/build/ icons tracked for CI)
+/build/
+/dist/
 *.spec.bak
 
 # Electron
