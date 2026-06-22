@@ -78,15 +78,23 @@ jobs:
         working-directory: desktop
         run: npm install
 
+      # On a release, electron-builder uploads the installer AND the auto-update
+      # metadata (latest.yml / latest-mac.yml / latest-linux.yml + .blockmap) to the
+      # release, which is what installed apps read to detect updates. On manual runs
+      # it just builds (artifacts are uploaded below).
       - name: Build installer
         working-directory: desktop
         env:
-          # Don't try to code-sign on CI (unsigned builds are fine for download).
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"   # no code-signing on CI
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            npm run dist -- --publish always
+          else
+            npm run dist -- --publish never
+          fi
 
-      # --- Publish --------------------------------------------------------------
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -96,16 +104,6 @@ jobs:
             desktop/release/*.dmg
             desktop/release/*.AppImage
             desktop/release/*.deb
+            desktop/release/*.yml
+            desktop/release/*.blockmap
           if-no-files-found: warn
-
-      - name: Attach installers to the release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            desktop/release/*.exe
-            desktop/release/*.dmg
-            desktop/release/*.AppImage
-            desktop/release/*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

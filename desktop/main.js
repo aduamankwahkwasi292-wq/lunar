@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
 const net = require('net');
+const { autoUpdater } = require('electron-updater');
 
 let backendProc = null;
 let mainWindow = null;
@@ -146,6 +147,35 @@ function createMainWindow(port) {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
+// ---- auto-update ----------------------------------------------------------
+// Checks GitHub Releases on launch; if a newer Lunar is published, downloads it
+// quietly and offers a one-click "Restart to update". Silent when offline or when
+// no newer release exists, so it never blocks startup.
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-downloaded', (info) => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'info',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Update available',
+      message: `Lunar ${info.version} is ready to install.`,
+      detail: 'Restart Lunar to get the latest version. Your work is saved.',
+    });
+    if (choice === 0) {
+      app.isQuitting = true;
+      killBackend();
+      autoUpdater.quitAndInstall();
+    }
+  });
+  // Never let an update hiccup (offline, no release yet) surface to the user.
+  autoUpdater.on('error', () => {});
+  setTimeout(() => { try { autoUpdater.checkForUpdates(); } catch (_) {} }, 4000);
+}
+
 // ---- lifecycle ------------------------------------------------------------
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -160,6 +190,7 @@ if (!gotLock) {
     try {
       const port = await startBackend();
       createMainWindow(port);
+      setupAutoUpdate();
     } catch (err) {
       if (splash) { splash.destroy(); splash = null; }
       dialog.showErrorBox('Lunar could not start', String(err && err.message || err));

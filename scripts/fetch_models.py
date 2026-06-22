@@ -19,6 +19,13 @@ import os
 import sys
 import urllib.request
 
+# Windows consoles default to cp1252 and choke on non-ASCII output; force UTF-8 so
+# the progress glyphs never crash the download (this also bites the Windows CI box).
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.normpath(os.path.join(HERE, "..", "models"))
 

@@ -72,6 +72,25 @@ That's it — no Python, no Node, no Ollama, no model downloads. ~1.5–2 GB ins
 
 ---
 
+## Shipping an update (so users auto-update)
+
+Lunar checks your GitHub Releases on launch. When you publish a **newer** version,
+installed apps download it and show *"Lunar X is ready — Restart now."*
+
+1. Make your changes.
+2. Bump the version in `desktop/package.json` (`"version": "1.0.1"`), commit, push.
+3. Publish a new release with the **matching tag**:
+   ```powershell
+   gh release create v1.0.1 --title "Lunar 1.0.1" --notes "What's new…"
+   ```
+4. CI rebuilds all three OSes and uploads the new installers **plus** the update
+   files (`latest.yml`, `latest-mac.yml`, `latest-linux.yml`, `.blockmap`).
+5. Everyone's Lunar offers the update next time they open it. No re-sharing links.
+
+> The tag version and `desktop/package.json` version must match (CI also syncs them
+> for you). Auto-update only works for users already on a build that includes the
+> updater — i.e. v1.0.0 onward.
+
 ## Notes
 
 - The installers are **unsigned**. For warning-free installs later, add Apple

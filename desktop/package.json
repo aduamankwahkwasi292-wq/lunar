@@ -12,6 +12,9 @@
     "dist:mac": "electron-builder --mac",
     "dist:linux": "electron-builder --linux"
   },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
     "electron": "^31.7.6",
     "electron-builder": "^24.13.3"
@@ -20,6 +23,13 @@
     "appId": "com.lunar.classroom",
     "productName": "Lunar",
     "copyright": "Copyright © 2026 Kwasi Kwakye & Alex Nyanteng",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "aduamankwahkwasi292-wq",
+        "repo": "lunar"
+      }
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -42,7 +52,8 @@
     "asar": true,
     "win": {
       "target": ["nsis"],
-      "artifactName": "Lunar-Setup-${version}.${ext}"
+      "artifactName": "Lunar-Setup-${version}.${ext}",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
