@@ -2461,7 +2461,11 @@ function crInit() {
         if (e.target.closest && e.target.closest('#cr-sel-tools')) return;  // let the button click run
         setTimeout(crUpdateSelTools, 0);
     });
-    if (crEls.board) crEls.board.addEventListener('scroll', crHideSelTools);
+    // WPS-style box select: drag a rectangle over the slide image.
+    if (crEls.board) {
+        crEls.board.addEventListener('mousedown', crMarqueeStart);
+        crEls.board.addEventListener('scroll', () => { crHideSelTools(); crClearMarquee(); });
+    }
 }
 
 // Show the Explain/Solve buttons when the student highlights board text (after
@@ -2474,14 +2478,16 @@ function crUpdateSelTools() {
     const sel = window.getSelection();
     const text = (sel && sel.toString) ? sel.toString().trim() : '';
     if (!text || text.length < 2 || !sel.rangeCount || sel.isCollapsed) {
+        if (cr.marqueeShown) return;        // a slide box-selection is active — keep it
         crHideSelTools(); return;
     }
-    // Show the tools as long as the selection lives inside the board — works for the
-    // lecture text AND the slide's text layer (whose image endpoint is unselectable).
+    // Native text selection of the lecture text — supersedes any slide box.
     const range = sel.getRangeAt(0);
     if (!crEls.board || !crEls.board.contains(range.commonAncestorContainer)) {
+        if (cr.marqueeShown) return;
         crHideSelTools(); return;
     }
+    crClearMarquee();
     cr.lastSelection = text;
     const rect = range.getBoundingClientRect();
     tools.style.display = 'flex';
@@ -2499,6 +2505,7 @@ async function crExplainSelection(sel, mode) {
     sel = (sel || '').trim();
     if (!sel || CR_BUSY.includes(cr.state)) return;
     crHideSelTools();
+    crClearMarquee();
     try { window.getSelection().removeAllRanges(); } catch (e) {}
     cr.history.push({ role: 'user', content: (mode === 'solve' ? 'Solve: ' : 'Explain: ') + sel });
     cr.state = 'responding';
@@ -2718,61 +2725,109 @@ function crLoadImage(url) {
     });
 }
 
-// Overlay an invisible, selectable text layer on the chalk slide (PDF.js / WPS
-// style): one span per word, each MEASURED and stretched horizontally (scaleX) to
-// sit exactly over its real word. That alignment is what makes selection precise —
-// dragging grabs only the words under the cursor, never the surrounding text.
-// The measured transforms are baked into the HTML string so they survive the
-// streaming re-renders (and stay correct on resize, since every value is a ratio).
-async function crLoadSlideTextLayer(idx, ar, gen) {
+// Fetch the slide's word boxes (page fractions) and keep them as data. The user
+// box-selects a region of the slide (WPS-style marquee, see crMarquee* below) and
+// we map that rectangle to the words inside it — so a selection grabs exactly what
+// was boxed and nothing around it.
+async function crLoadSlideWords(idx, gen) {
+    cr.slideWords = null;
     try {
         const res = await fetch(`${API_BASE}/api/classroom/slide_text/${state.sessionId}/${idx}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (gen !== cr.typeGen || !cr.slideFigureHTML || cr.slideHasLayer) return;
+        if (gen !== cr.typeGen) return;
         const words = (data && data.words) || [];
-        if (!words.length) return;
-        const liveFig = crEls.board.querySelector('.cr-slide');
-        if (!liveFig) return;
-        const a = ar || 1;
+        if (words.length) cr.slideWords = words;
+    } catch (e) { /* region selection just won't be available on this slide */ }
+}
 
-        // 1) Build the layer with each word positioned + sized to its box height,
-        //    then attach it live so we can measure each word's natural width.
-        const layer = document.createElement('div');
-        layer.className = 'cr-textlayer';
-        const els = words.map(w => {
-            const s = document.createElement('span');
-            s.textContent = w.t;
-            s.style.left = (w.x * 100).toFixed(3) + '%';
-            s.style.top = (w.y * 100).toFixed(3) + '%';
-            s.style.fontSize = (w.h * 100 / a).toFixed(3) + 'cqw';
-            layer.appendChild(s);
-            return s;
-        });
-        liveFig.appendChild(layer);
-        const layerW = layer.clientWidth || liveFig.clientWidth || 0;
+// ---- WPS-style box / region select on the slide --------------------------
+// Drag a rectangle over the slide → a clean selection box with corner handles
+// appears, and the words inside it become the selection for Explain / Solve.
+function crClearMarquee() {
+    cr.marqueeShown = false;
+    if (crEls.board) {
+        const old = crEls.board.querySelector('.cr-marquee');
+        if (old) old.remove();
+    }
+}
 
-        // 2) Stretch each word to exactly cover its box (synchronous — no await, so a
-        //    streaming repaint can't wipe the layer mid-measure).
-        if (layerW > 10) {
-            for (let i = 0; i < words.length; i++) {
-                const natural = els[i].offsetWidth || 1;
-                const sx = Math.max(0.02, (words[i].w * layerW) / natural);
-                els[i].style.transform = 'scaleX(' + sx.toFixed(4) + ')';
-                els[i].textContent = words[i].t + ' ';   // space → clean selection text
-            }
-        }
+function crMarqueeStart(e) {
+    if (e.button !== 0 || (e.target.closest && e.target.closest('#cr-sel-tools'))) return;
+    crClearMarquee();
+    crHideSelTools();
+    if (CR_BUSY.includes(cr.state)) return;
+    const fig = e.target.closest && e.target.closest('.cr-slide');
+    const img = fig && fig.querySelector('.cr-slide-img');
+    if (!fig || !img || !cr.slideWords || !cr.slideWords.length) return;   // only on a slide with text
+    e.preventDefault();   // no native image-drag / text-select while boxing
+    cr._mq = { fig, img, imgRect: img.getBoundingClientRect(), x0: e.clientX, y0: e.clientY, box: null, moved: false };
+    document.addEventListener('mousemove', crMarqueeMove);
+    document.addEventListener('mouseup', crMarqueeEnd);
+}
 
-        // 3) Bake the measured layer into prefixHTML and drop the live probe.
-        const layerHTML = layer.outerHTML;
-        layer.remove();
-        cr.slideFigureHTML = cr.slideFigureHTML.replace('</figure>', layerHTML + '</figure>');
-        cr.slideHasLayer = true;
-        cr.prefixHTML = cr.slideFigureHTML + (cr.slideLinksHTML || '');
-        if (cr.state !== 'teaching' && cr.state !== 'responding') {
-            crRenderBoard(cr.boardRaw || '', false);
-        }
-    } catch (e) { /* selection just won't be available on this slide */ }
+function crMarqueeMove(e) {
+    const m = cr._mq;
+    if (!m) return;
+    const r = m.imgRect;
+    const x1 = Math.max(r.left, Math.min(e.clientX, r.right));
+    const y1 = Math.max(r.top, Math.min(e.clientY, r.bottom));
+    const left = Math.min(m.x0, x1), top = Math.min(m.y0, y1);
+    const w = Math.abs(x1 - m.x0), h = Math.abs(y1 - m.y0);
+    if (!m.moved && (w > 3 || h > 3)) {
+        m.moved = true;
+        m.box = document.createElement('div');
+        m.box.className = 'cr-marquee';
+        m.fig.appendChild(m.box);
+    }
+    if (m.box) {
+        const fr = m.fig.getBoundingClientRect();
+        m.box.style.left = (left - fr.left) + 'px';
+        m.box.style.top = (top - fr.top) + 'px';
+        m.box.style.width = w + 'px';
+        m.box.style.height = h + 'px';
+    }
+}
+
+function crMarqueeEnd() {
+    const m = cr._mq;
+    cr._mq = null;
+    document.removeEventListener('mousemove', crMarqueeMove);
+    document.removeEventListener('mouseup', crMarqueeEnd);
+    if (!m || !m.moved || !m.box) { crClearMarquee(); crHideSelTools(); return; }
+    const r = m.imgRect;
+    const bx = m.box.getBoundingClientRect();
+    const fx = (bx.left - r.left) / r.width, fy = (bx.top - r.top) / r.height;
+    const fw = bx.width / r.width, fh = bx.height / r.height;
+    // Pick the words whose centre falls inside the box (in reading order).
+    const picked = cr.slideWords.filter(wd => {
+        const cx = wd.x + wd.w / 2, cy = wd.y + wd.h / 2;
+        return cx >= fx && cx <= fx + fw && cy >= fy && cy <= fy + fh;
+    });
+    const text = picked.map(wd => wd.t).join(' ').replace(/\s+/g, ' ').trim();
+    if (!text) { crClearMarquee(); crHideSelTools(); return; }
+    cr.lastSelection = text;
+    cr.marqueeShown = true;
+    // corner handles, WPS-style
+    ['tl', 'tr', 'bl', 'br'].forEach(p => {
+        const h = document.createElement('span');
+        h.className = 'cr-mq-h cr-mq-' + p;
+        m.box.appendChild(h);
+    });
+    crShowSelToolsAt(bx);
+}
+
+// Position the Explain/Solve toolbar above (or below) a given viewport rect.
+function crShowSelToolsAt(rect) {
+    const tools = crEls.selTools;
+    if (!tools) return;
+    tools.style.display = 'flex';
+    const tw = tools.offsetWidth || 150, th = tools.offsetHeight || 38;
+    const left = Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8));
+    let top = rect.top - th - 8;
+    if (top < 64) top = rect.bottom + 8;
+    tools.style.left = left + 'px';
+    tools.style.top = top + 'px';
 }
 
 // Warm the next slide's render so navigation feels instant (cached server-side +
@@ -2809,14 +2864,12 @@ async function crTypeSlidePayload(payload, gen) {
         const img = await crLoadImage(payload.image);
         if (gen !== cr.typeGen) return;     // a newer slide started
         cr.slideLinksHTML = crLinksHTML(payload.links);
-        cr.slideHasLayer = false;
+        crClearMarquee();
         if (img) {
             cr.slideFigureHTML = `<figure class="cr-slide"><img class="cr-slide-img" src="${crAttr(payload.image)}" alt="slide" draggable="false"></figure>`;
             cr.prefixHTML = cr.slideFigureHTML + cr.slideLinksHTML;
-            // Overlay an invisible, selectable text layer so the real slide can be
-            // highlighted like normal text (fetched async; updates prefixHTML when ready).
-            const ar = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : 1;
-            crLoadSlideTextLayer(cr.slideIndex, ar, gen);
+            // Load this slide's word boxes so the user can box-select a region of it.
+            crLoadSlideWords(cr.slideIndex, gen);
         } else {
             cr.slideFigureHTML = '';
             cr.prefixHTML = '<div class="cr-empty">Couldn’t open this slide. ' +

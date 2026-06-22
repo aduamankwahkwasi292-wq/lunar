@@ -1118,16 +1118,17 @@ input:focus, select:focus, textarea:focus {
 /* the full slide rendered onto the board (recolored to chalk) */
 .cr-board .cr-slide { position: relative; width: fit-content; max-width: 100%; margin: 0 auto 10px; animation: crSlideIn .45s ease both; }
 .cr-board .cr-slide-img { width: 100%; height: auto; display: block; image-rendering: auto;
+    cursor: crosshair;          /* signals "drag a box to select" */
     user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
-/* Invisible, selectable text layer over the chalk slide (PDF.js/WPS style): one span
-   per word, each stretched (scaleX, set in JS) to sit exactly over its real word so
-   drag-selection is character-precise and grabs only what's under the cursor. */
-.cr-board .cr-textlayer { position: absolute; inset: 0; container-type: inline-size;
-    line-height: 1; user-select: text; -webkit-user-select: text; z-index: 3; }
-.cr-board .cr-textlayer span { position: absolute; color: transparent; white-space: pre;
-    cursor: text; transform-origin: 0 0; }
-.cr-board .cr-textlayer span::selection { background: rgba(120, 220, 255, 0.45); color: transparent; }
-.cr-board .cr-textlayer span::-moz-selection { background: rgba(120, 220, 255, 0.45); color: transparent; }
+/* WPS-style box / region selection on the slide: a clean dashed box with corner
+   handles. The words inside the box become the selection for Explain / Solve. */
+.cr-board .cr-marquee { position: absolute; z-index: 4; pointer-events: none;
+    border: 1.5px dashed #7fe3ff; background: rgba(127, 227, 255, 0.14);
+    box-shadow: 0 0 0 1px rgba(11, 16, 32, 0.35), 0 0 14px rgba(127, 227, 255, 0.35); }
+.cr-board .cr-mq-h { position: absolute; width: 9px; height: 9px; border-radius: 50%;
+    background: #7fe3ff; border: 2px solid #0b1020; }
+.cr-board .cr-mq-tl { left: -5px; top: -5px; } .cr-board .cr-mq-tr { right: -5px; top: -5px; }
+.cr-board .cr-mq-bl { left: -5px; bottom: -5px; } .cr-board .cr-mq-br { right: -5px; bottom: -5px; }
 @keyframes crSlideIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* figures, videos & links pulled verbatim from the slide */
