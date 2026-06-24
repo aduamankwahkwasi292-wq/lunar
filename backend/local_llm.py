@@ -177,13 +177,23 @@ async def _ensure_embed_llm():
     return _embed_llm
 
 
+# Sampler settings tuned for small models: min_p keeps the distribution coherent
+# (far better than top_k alone on a 1.5B), and a light repeat penalty stops the
+# loops/repetition small models fall into. Big quality lift, zero model change.
+_SAMPLER = {
+    "top_p": float(os.environ.get("LUNAR_TOP_P", "0.95")),
+    "min_p": float(os.environ.get("LUNAR_MIN_P", "0.05")),
+    "repeat_penalty": float(os.environ.get("LUNAR_REPEAT_PENALTY", "1.1")),
+}
+
+
 async def _llama_chat(messages, *, temperature, max_tokens, json_mode):
     llm = await _ensure_chat_llm()
     loop = asyncio.get_running_loop()
 
     def _run():
         kwargs = dict(messages=messages, temperature=temperature,
-                      max_tokens=max_tokens or 768, stream=False)
+                      max_tokens=max_tokens or 768, stream=False, **_SAMPLER)
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         res = llm.create_chat_completion(**kwargs)
@@ -207,7 +217,7 @@ async def _llama_chat_stream(messages, *, temperature, max_tokens):
         try:
             for chunk in llm.create_chat_completion(
                 messages=messages, temperature=temperature,
-                max_tokens=max_tokens or 768, stream=True,
+                max_tokens=max_tokens or 768, stream=True, **_SAMPLER,
             ):
                 delta = (chunk.get("choices") or [{}])[0].get("delta", {}).get("content")
                 if delta:
@@ -254,7 +264,9 @@ def _supports_think(model: str) -> bool:
 
 
 def _ollama_options(num_ctx, temperature, max_tokens):
-    options = {"temperature": temperature, "num_ctx": num_ctx}
+    options = {"temperature": temperature, "num_ctx": num_ctx,
+               "top_p": _SAMPLER["top_p"], "min_p": _SAMPLER["min_p"],
+               "repeat_penalty": _SAMPLER["repeat_penalty"]}
     if max_tokens is not None:
         options["num_predict"] = max_tokens
     if NUM_THREAD:

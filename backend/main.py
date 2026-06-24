@@ -474,6 +474,35 @@ async def classroom_chat_stream(req: ClassroomChatRequest):
     return StreamingResponse(gen(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
 
 
+async def _retrieve_grounding(session, query, exclude_idx=None, k=2):
+    """Top-k most relevant slide snippets across the deck for `query` (RAG context).
+
+    Best-effort: only runs if the deck's embeddings are already warmed, so it never
+    blocks Explain/Solve on embedding the whole deck. Gives the small model the exact
+    definitions/formulas it needs from elsewhere in the notes.
+    """
+    vecs = session.get("slide_vectors")
+    texts = session.get("slide_search_texts")
+    q = (query or "").strip()
+    if not vecs or not texts or not q:
+        return ""
+    try:
+        qv = (await local_llm.embed([q]))[0]
+    except Exception:
+        return ""
+    scored = sorted(((questions._cos(qv, v), i) for i, v in enumerate(vecs)), reverse=True)
+    out = []
+    for score, i in scored:
+        if i == exclude_idx or score < 0.4 or i >= len(texts):
+            continue
+        snippet = " ".join((texts[i] or "").split())[:260].strip()
+        if snippet:
+            out.append(snippet)
+        if len(out) >= k:
+            break
+    return "\n---\n".join(out)
+
+
 @app.post("/api/classroom/explain")
 async def classroom_explain(req: ExplainRequest):
     """Explain (or solve) the portion the student highlighted on the board."""
@@ -485,10 +514,22 @@ async def classroom_explain(req: ExplainRequest):
     slide_text = _grounding_text(slides[idx]) if slides else session.get("text", "")
     mode = "solve" if req.mode == "solve" else "explain"
 
+    # Solve: compute the exact answer with sympy when the selection is solvable, so
+    # the model explains toward the correct result instead of doing the arithmetic.
+    verified = ""
+    if mode == "solve":
+        try:
+            verified = questions.solve_selection(req.selection) or ""
+        except Exception:
+            verified = ""
+    # RAG: pull the most relevant facts from elsewhere in the deck (if warmed).
+    context = await _retrieve_grounding(session, req.selection, exclude_idx=idx, k=2)
+
     async def gen():
         try:
             async with _interactive():
-                async for piece in classroom.explain_stream(slide_text, req.selection, mode):
+                async for piece in classroom.explain_stream(
+                        slide_text, req.selection, mode, context=context, verified=verified):
                     yield json.dumps({"token": piece}) + "\n"
         except local_llm.LocalLLMError as e:
             yield json.dumps({"error": str(e)}) + "\n"

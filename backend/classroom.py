@@ -202,8 +202,15 @@ async def chat_stream(slide_text: str, user_message: str, history=None, focus=No
 # ======================================================================
 # Highlight → Explain / Solve a portion of the slide or lecture
 # ======================================================================
-async def explain_stream(slide_text: str, selection: str, mode: str = "explain", history=None):
-    """Explain (or solve) the portion the student highlighted, grounded in the slide."""
+async def explain_stream(slide_text: str, selection: str, mode: str = "explain",
+                         history=None, context: str = "", verified: str = ""):
+    """Explain (or solve) the portion the student highlighted, grounded in the slide.
+
+    `context` = relevant facts retrieved from elsewhere in the deck (RAG) so the small
+    model has the exact definitions/formulas it needs. `verified` = an answer computed
+    exactly by sympy (solve mode) so the model explains toward the correct result
+    instead of doing fragile arithmetic itself.
+    """
     sel = (selection or "").strip()[:1200]
     if mode == "solve":
         system = (
@@ -214,6 +221,11 @@ async def explain_stream(slide_text: str, selection: str, mode: str = "explain",
             "asking. Write maths in plain text (≤ ≥ × √, 'n^2', '(a+b)/c'), NEVER LaTeX, and never draw number lines/graphs/diagrams/ASCII art (describe them in words). Finish "
             "completely."
         )
+        if verified:
+            system += (
+                " A symbolic solver has already computed the correct final answer: "
+                + verified + ". Work through the steps that lead to it and give exactly this "
+                "as the final answer — do not contradict it.")
         ask = f"Solve this, showing each step, then explain:\n\"\"\"\n{sel}\n\"\"\""
     else:
         system = (
@@ -226,7 +238,11 @@ async def explain_stream(slide_text: str, selection: str, mode: str = "explain",
         ask = f"Explain this part simply:\n\"\"\"\n{sel}\n\"\"\""
     convo = _history_block(history)
     user = ("Recent conversation:\n" + convo + "\n\n") if convo else ""
-    user += f"Current slide:\n\"\"\"\n{_slide(slide_text)}\n\"\"\"\n\n{ask}\n\nReply as Lunar."
+    user += f"Current slide:\n\"\"\"\n{_slide(slide_text)}\n\"\"\""
+    if context:
+        user += ("\n\nRelevant facts from elsewhere in your notes (use if helpful):\n"
+                 f"\"\"\"\n{context[:900]}\n\"\"\"")
+    user += f"\n\n{ask}\n\nReply as Lunar."
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     budget = 480 if mode == "solve" else 320
     async for piece in _stream_complete(messages, temperature=0.5, max_tokens=budget,

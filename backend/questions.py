@@ -133,6 +133,72 @@ def _parse_example(slide_text: str):
     return None
 
 
+def solve_selection(text: str):
+    """Best-effort EXACT solve of a highlighted equation / inequality / arithmetic.
+
+    The 1.5B model is poor at computation, so when the student boxes something that
+    is actually solvable we compute it with sympy and feed the result to the model
+    to *explain* — anchoring its working to the correct answer. Returns a short
+    answer string, or None when it can't parse confidently (then the LLM solves
+    unaided, exactly as before — never worse).
+    """
+    raw = (text or "").strip()
+    if not raw or len(raw) > 220:
+        return None
+    try:
+        import sympy
+        from sympy.parsing.sympy_parser import (
+            parse_expr, standard_transformations, implicit_multiplication_application)
+    except Exception:
+        return None
+
+    s = _mathify(raw).replace("≤", "<=").replace("≥", ">=").replace("≠", "!=")
+    s = re.sub(r"\s+", " ", s).strip()
+    # take only the leading mathematical part (drop trailing prose)
+    s = re.split(r"\b(where|hence|so|therefore|thus|find|solve|given)\b", s, flags=re.I)[0].strip()
+    if not re.search(r"[0-9A-Za-z]", s):
+        return None
+    transf = standard_transformations + (implicit_multiplication_application,)
+
+    def _p(e):
+        ids = {n for n in re.findall(r"[A-Za-z][A-Za-z0-9_]*", e) if n.lower() not in _RESERVED}
+        return parse_expr(e, local_dict={n: sympy.Symbol(n) for n in ids},
+                          transformations=transf, evaluate=True)
+
+    rels = list(re.finditer(r"(<=|>=|!=|=|<|>)", s))
+    try:
+        if len(rels) == 1:
+            op = rels[0].group(1)
+            lhs = _p(s[:rels[0].start()].strip())
+            rhs = _p(re.split(r"[,;]\s", s[rels[0].end():].strip())[0].strip())
+            syms = sorted((lhs - rhs).free_symbols, key=str)
+            if len(syms) != 1:
+                return None
+            x = syms[0]
+            if op == "=":
+                sols = sympy.solve(sympy.Eq(lhs, rhs), x)
+                if not sols:
+                    return None
+                return ", ".join(f"{x} = {_format_num(v) if v.is_number else v}" for v in sols)
+            rel = {"<": lhs < rhs, "<=": lhs <= rhs, ">": lhs > rhs,
+                   ">=": lhs >= rhs, "!=": sympy.Ne(lhs, rhs)}[op]
+            res = sympy.reduce_inequalities(rel, x)
+            out = str(res).replace("&", "and").replace("|", "or")
+            out = re.sub(r"\(-oo < \w+\) and ", "", out)
+            out = re.sub(r" and \(\w+ < oo\)", "", out)
+            return out.replace("oo", "∞")
+        if len(rels) == 0:
+            if not re.fullmatch(r"[0-9.+\-*/() ]+", s):   # pure arithmetic only
+                return None
+            expr = _p(s)
+            if expr.free_symbols:
+                return None
+            return _format_num(sympy.N(expr))
+    except Exception:
+        return None
+    return None
+
+
 def _var_name(slide_text: str, sym: str) -> str:
     """A readable name for a symbol if the slide spells it out (e.g. 'V = voltage')."""
     m = re.search(re.escape(sym) + r"\s*(?:=|is|:)\s*(?:the\s+)?([a-z][a-z ]{2,24})", slide_text, re.I)
