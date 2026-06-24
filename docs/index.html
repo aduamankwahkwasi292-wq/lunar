@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lunar — Your private AI study tutor</title>
+<meta name="description" content="Upload your slides and step into a hologram classroom where Lunar teaches them to you, slide by slide. 100% on-device. No accounts, no keys, no internet.">
+<link rel="icon" href="assets/icon.png" type="image/png">
+<meta property="og:title" content="Lunar — Your private AI study tutor">
+<meta property="og:description" content="A hologram classroom that teaches your slides to you. 100% offline.">
+<meta property="og:image" content="assets/classroom.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#05060c; --bg2:#0a0c16; --ink:#eef1ff; --muted:rgba(238,241,255,.56);
+    --cyan:#6fe3ff; --violet:#8b7bff; --line:rgba(255,255,255,.08);
+    --glass:rgba(255,255,255,.035);
+    --grad:linear-gradient(120deg,#6fe3ff,#8b7bff 55%,#c4a8ff);
+    --maxw:1180px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;
+    overflow-x:hidden;-webkit-font-smoothing:antialiased;line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  canvas#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;position:relative;z-index:2}
+  .display{font-family:'Syne',sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.02}
+  .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .muted{color:var(--muted)}
+  .btn{display:inline-flex;align-items:center;gap:10px;font-weight:600;font-size:15px;
+    padding:14px 26px;border-radius:999px;cursor:pointer;border:1px solid transparent;
+    transition:transform .18s ease,box-shadow .18s ease,background .18s,opacity .18s}
+  .btn-primary{background:var(--grad);color:#06070e;box-shadow:0 10px 40px -10px rgba(111,227,255,.55)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 55px -10px rgba(139,123,255,.7)}
+  .btn-ghost{background:var(--glass);border-color:var(--line);color:var(--ink);backdrop-filter:blur(8px)}
+  .btn-ghost:hover{border-color:rgba(111,227,255,.5);transform:translateY(-2px)}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;letter-spacing:.4px;
+    padding:7px 15px;border-radius:999px;border:1px solid rgba(139,123,255,.3);
+    background:rgba(139,123,255,.1);color:#c9c2ff;text-transform:uppercase}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* nav */
+  nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:background .3s,border-color .3s}
+  nav.scrolled{background:rgba(5,6,12,.72);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:68px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:'Syne';font-weight:800;font-size:20px}
+  .brand img{width:30px;height:30px;border-radius:8px;box-shadow:0 0 22px rgba(139,123,255,.55)}
+  .nav-links{display:flex;align-items:center;gap:30px;font-size:14.5px}
+  .nav-links a.l{color:var(--muted);transition:color .2s}
+  .nav-links a.l:hover{color:var(--ink)}
+  .nav-dl{padding:9px 18px;font-size:13.5px}
+
+  /* hero */
+  header{position:relative;padding:150px 0 60px;text-align:center}
+  .moon{width:120px;height:120px;border-radius:50%;margin:0 auto 30px;position:relative;
+    background:radial-gradient(circle at 34% 30%,#eae6ff,#9a90ff 52%,#5b54c9 78%,#2e2a63);
+    box-shadow:0 0 70px rgba(139,123,255,.6),inset -16px -12px 0 -2px rgba(5,6,12,.55);
+    animation:float 6s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  h1.hero{font-size:clamp(44px,8vw,90px);margin:6px 0 0}
+  .hero-sub{font-size:clamp(16px,2.2vw,20px);max-width:600px;margin:24px auto 6px;color:var(--muted);font-weight:300}
+  .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:38px}
+  .hero-meta{margin-top:20px;font-size:13px;color:var(--muted);display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+  .hero-meta span{display:inline-flex;align-items:center;gap:7px}
+  .chk{color:var(--cyan)}
+
+  /* showcase / interactive classroom */
+  .stage{margin:70px auto 0;max-width:1000px;position:relative}
+  .frame{border-radius:18px;overflow:hidden;border:1px solid var(--line);
+    background:#04050a;box-shadow:0 40px 120px -30px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.03);
+    position:relative}
+  .frame-bar{display:flex;align-items:center;gap:7px;padding:11px 15px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--line)}
+  .tl{width:11px;height:11px;border-radius:50%}
+  .tl.r{background:#ff5f57}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+  .frame-title{margin-left:12px;font-size:12.5px;color:var(--muted)}
+  .room{position:relative;width:100%;aspect-ratio:1672/941;background:#04050a center/cover no-repeat}
+  /* the writable board overlaid on the hologram */
+  .board{position:absolute;left:18.5%;top:24%;width:60.5%;height:48%;overflow:hidden;
+    display:flex;flex-direction:column;cursor:crosshair}
+  .board img.slide{width:100%;height:auto;display:block;filter:drop-shadow(0 0 6px rgba(120,210,255,.25))}
+  .marq{position:absolute;border:1.5px dashed var(--cyan);background:rgba(111,227,255,.14);
+    box-shadow:0 0 14px rgba(111,227,255,.4);opacity:0;pointer-events:none}
+  .marq i{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--cyan);border:2px solid #04050a}
+  .marq .a{left:-5px;top:-5px}.marq .b{right:-5px;top:-5px}.marq .c{left:-5px;bottom:-5px}.marq .d{right:-5px;bottom:-5px}
+  .tools{position:absolute;display:flex;gap:6px;opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;z-index:5}
+  .tools button{font-family:'Inter';font-weight:600;font-size:12px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);cursor:default}
+  .tools .ex{background:rgba(111,227,255,.16);color:#cdf3ff;border-color:rgba(111,227,255,.45)}
+  .tools .so{background:rgba(120,230,160,.16);color:#cdf7da;border-color:rgba(120,230,160,.45)}
+  .say{position:absolute;left:18.5%;right:21%;bottom:9%;font-family:'Inter';font-size:clamp(9px,1.35vw,15px);
+    color:#d7f4ff;text-shadow:0 0 10px rgba(90,200,255,.4);line-height:1.4;min-height:2.6em}
+  .cursor-dot{position:absolute;width:14px;height:14px;border:2px solid #fff;border-radius:50%;
+    background:rgba(255,255,255,.25);opacity:0;pointer-events:none;z-index:6;transition:opacity .2s}
+  .stage-cap{text-align:center;margin-top:18px;font-size:13.5px;color:var(--muted)}
+
+  /* sections */
+  section{position:relative;padding:96px 0}
+  .eyebrow{font-size:12.5px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-bottom:14px}
+  h2.sec{font-size:clamp(30px,4.5vw,48px);max-width:620px}
+  .lead{color:var(--muted);max-width:560px;margin-top:16px;font-size:17px;font-weight:300}
+
+  .features{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:54px}
+  .card{background:var(--glass);border:1px solid var(--line);border-radius:18px;padding:28px;
+    transition:transform .25s,border-color .25s,background .25s;position:relative;overflow:hidden}
+  .card:hover{transform:translateY(-4px);border-color:rgba(111,227,255,.35);background:rgba(255,255,255,.05)}
+  .card .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:18px;
+    background:linear-gradient(135deg,rgba(111,227,255,.18),rgba(139,123,255,.18));border:1px solid var(--line)}
+  .card h3{font-family:'Syne';font-size:19px;font-weight:700;margin-bottom:9px}
+  .card p{color:var(--muted);font-size:14.5px;font-weight:300}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px}
+  .step{position:relative;padding:26px;border-radius:18px;border:1px solid var(--line);background:var(--glass)}
+  .step .n{font-family:'Syne';font-weight:800;font-size:15px;width:34px;height:34px;border-radius:50%;
+    display:grid;place-items:center;background:rgba(139,123,255,.16);border:1px solid rgba(139,123,255,.4);color:#c9c2ff;margin-bottom:16px}
+  .step h3{font-family:'Syne';font-size:17px;margin-bottom:7px}
+  .step p{color:var(--muted);font-size:14px;font-weight:300}
+
+  /* download */
+  .dl{max-width:920px;margin:0 auto;text-align:center;border-radius:26px;padding:64px 36px;
+    border:1px solid var(--line);position:relative;overflow:hidden;
+    background:radial-gradient(120% 130% at 50% 0%,rgba(139,123,255,.18),rgba(5,6,12,0) 60%),var(--glass)}
+  .dl h2{font-size:clamp(30px,4.5vw,46px);margin-bottom:14px}
+  .dl p{color:var(--muted);max-width:480px;margin:0 auto 32px;font-weight:300}
+  .dl .big{font-size:17px;padding:18px 40px}
+  .os-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px;font-size:12.5px}
+  .os{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .os.ready{color:#bdf3d2;border-color:rgba(120,230,160,.4);background:rgba(120,230,160,.08)}
+  .note{margin-top:22px;font-size:12.5px;color:var(--muted);max-width:520px;margin-left:auto;margin-right:auto}
+
+  footer{padding:50px 0 60px;border-top:1px solid var(--line);margin-top:40px}
+  .foot-in{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+  .foot-in .muted{font-size:13px}
+
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  @media(max-width:760px){
+    .nav-links a.l{display:none}
+    .features,.steps{grid-template-columns:1fr}
+    header{padding:120px 0 30px}
+    .say{font-size:9px}
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<nav id="nav"><div class="wrap nav-in">
+  <a href="#top" class="brand"><img src="assets/icon.png" alt="">Lunar</a>
+  <div class="nav-links">
+    <a class="l" href="#demo">Demo</a>
+    <a class="l" href="#features">Features</a>
+    <a class="l" href="#how">How it works</a>
+    <a class="btn btn-primary nav-dl" href="#download">Download</a>
+  </div>
+</div></nav>
+
+<a id="top"></a>
+<header><div class="wrap">
+  <div class="moon"></div>
+  <span class="pill"><span class="dot"></span> 100% on-device · no internet</span>
+  <h1 class="hero display">Your private<br><span class="grad">AI study tutor.</span></h1>
+  <p class="hero-sub">Upload your slides and step into a hologram classroom. Lunar teaches them to you — one slide at a time, on the board. No accounts. No keys. Nothing ever leaves your computer.</p>
+  <div class="hero-cta">
+    <a class="btn btn-primary" href="#download">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+      Download for Windows
+    </a>
+    <a class="btn btn-ghost" href="#demo">Watch it teach →</a>
+  </div>
+  <div class="hero-meta">
+    <span><span class="chk">✦</span> Free &amp; offline</span>
+    <span><span class="chk">✦</span> PDF · PPTX · Word · images</span>
+    <span><span class="chk">✦</span> Runs on your machine</span>
+  </div>
+</div></header>
+
+<!-- interactive classroom -->
+<div class="wrap" id="demo">
+  <div class="stage reveal">
+    <div class="frame">
+      <div class="frame-bar"><span class="tl r"></span><span class="tl y"></span><span class="tl g"></span><span class="frame-title">Lunar — Classroom</span></div>
+      <div class="room" id="room" style="background-image:url('assets/classroom.png')">
+        <div class="board" id="board">
+          <img class="slide" src="assets/slide.png" alt="A slide on the board">
+          <div class="marq" id="marq"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></div>
+        </div>
+        <div class="tools" id="tools"><button class="ex">Explain</button><button class="so">Solve</button></div>
+        <div class="say" id="say"></div>
+        <div class="cursor-dot" id="cur"></div>
+      </div>
+    </div>
+    <p class="stage-cap">Drag a box around anything on a slide — Lunar explains it, or solves it step by step.</p>
+  </div>
+</div>
+
+<section id="features"><div class="wrap">
+  <div class="reveal">
+    <div class="eyebrow">Why students love it</div>
+    <h2 class="sec display">Not a chatbot.<br>A class that's <span class="grad">just for you.</span></h2>
+  </div>
+  <div class="features">
+    <div class="card reveal">
+      <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9fe9ff" stroke-width="2"><path d="M2 6.5A2.5 2.5 0 014.5 4H11v15H4.5A2.5 2.5 0 012 16.5zM22 6.5A2.5 2.5 0 0019.5 4H13v15h6.5a2.5 2.5 0 002.5-2.5z"/></svg></div>
+      <h3>Taught slide by slide</h3>
+      <p>Your real slide opens on the board and Lunar teaches it like a patient professor — grounded only in your material, nothing made up.</p>
+    </div>
+    <div class="card reveal">
+      <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b6acff" stroke-width="2"><path d="M3 3l7.5 18 2.6-7.9L21 10.5z"/></svg></div>
+      <h3>Box-select → Explain or Solve</h3>
+      <p>Drag a box around any part of a slide. Lunar breaks it down — or works the question step by step. Exactly what you selected, nothing else.</p>
+    </div>
+    <div class="card reveal">
+      <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9fe9ff" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+      <h3>Find anything, instantly</h3>
+      <p>Jump to any slide by number or keyword across your whole deck — your notes, fully searchable, in a blink.</p>
+    </div>
+    <div class="card reveal">
+      <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b6acff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <h3>100% on your device</h3>
+      <p>The AI runs entirely on your machine. No API keys, no sign-up, no internet. Your slides never leave your computer.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="reveal">
+    <div class="eyebrow">How it works</div>
+    <h2 class="sec display">Three steps to<br>your private class.</h2>
+  </div>
+  <div class="steps">
+    <div class="step reveal"><div class="n">1</div><h3>Upload your slides</h3><p>Drop a PDF, PowerPoint, Word doc, or even photos of slides. Lunar reads every page — OCR included.</p></div>
+    <div class="step reveal"><div class="n">2</div><h3>Step into the classroom</h3><p>Your slide opens on the hologram board and Lunar teaches it, one at a time, with clear explanations and worked examples.</p></div>
+    <div class="step reveal"><div class="n">3</div><h3>Box-select, ask, or jump</h3><p>Box anything for Explain or Solve, ask Lunar in your own words, or search to jump anywhere in the deck.</p></div>
+  </div>
+</div></section>
+
+<section id="download"><div class="wrap">
+  <div class="dl reveal">
+    <span class="pill"><span class="dot"></span> Version 1.0 · Windows</span>
+    <h2 class="display" style="margin-top:18px">Meet Lunar.<br><span class="grad">Free. Offline. Yours.</span></h2>
+    <p>One download. Double-click. It just works — the AI and models are built in. No Python, no setup, nothing to configure.</p>
+    <a class="btn btn-primary big" id="dlbtn" href="https://github.com/aduamankwahkwasi292-wq/lunar/releases/download/v1.0.0/Lunar-Setup-1.0.0.exe">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+      Download Lunar for Windows
+    </a>
+    <div class="os-row">
+      <span class="os ready">✓ Windows 10/11</span>
+      <span class="os">macOS · coming soon</span>
+      <span class="os">Linux · coming soon</span>
+    </div>
+    <p class="note">It's an indie app, so it isn't code-signed yet: if Windows or your browser shows a warning, choose <b>Keep</b> / <b>More info → Run anyway</b>. Installer ≈ 1.4 GB (the AI lives inside).</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap foot-in">
+  <a href="#top" class="brand"><img src="assets/icon.png" alt="">Lunar</a>
+  <span class="muted">Built by Kwasi Kwakye &amp; Alex Nyanteng · The private way to study.</span>
+  <a class="l muted" href="https://github.com/aduamankwahkwasi292-wq/lunar" style="display:inline-flex;align-items:center;gap:8px">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.6.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.2-3.4-1.2-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.3 9.3 0 015 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5 3.9-1.3 6.8-5.1 6.8-9.6C22 6.6 17.5 2 12 2z"/></svg>
+    GitHub
+  </a>
+</div></footer>
+
+<script>
+// ---- starfield ----
+(function(){
+  const c=document.getElementById('stars'),x=c.getContext('2d');let w,h,stars;
+  function rs(){w=c.width=innerWidth;h=c.height=innerHeight;stars=Array.from({length:Math.min(170,Math.floor(w*h/9000))},()=>({x:Math.random()*w,y:Math.random()*h,z:Math.random(),r:Math.random()*1.3+.2,t:Math.random()*6}))}
+  rs();addEventListener('resize',rs);
+  (function loop(){x.clearRect(0,0,w,h);for(const s of stars){s.t+=.02;const tw=.55+.45*Math.sin(s.t);const col=s.z>.7?'180,200,255':s.z>.4?'150,235,255':'200,180,255';x.beginPath();x.arc(s.x,s.y,s.r,0,7);x.fillStyle='rgba('+col+','+(tw*(.3+s.z*.6))+')';x.fill();s.y+=.04+s.z*.06;if(s.y>h){s.y=0;s.x=Math.random()*w}}requestAnimationFrame(loop)})();
+})();
+// ---- nav + reveal ----
+const nav=document.getElementById('nav');
+addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>20));
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.16});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+// ---- interactive classroom loop ----
+(function(){
+  const board=document.getElementById('board'),marq=document.getElementById('marq'),
+        tools=document.getElementById('tools'),say=document.getElementById('say'),cur=document.getElementById('cur'),room=document.getElementById('room');
+  const lines=[
+    {box:[.06,.30,.52,.12], say:"Aight — these are the integers: all the whole numbers and their negatives, …−2, −1, 0, 1, 2…"},
+    {box:[.30,.74,.40,.10], say:"This is the set of rationals — any number you can write as a fraction a∕b, with b ≠ 0."},
+    {box:[.10,.08,.46,.07], say:"Let's start at the top: the natural numbers — the counting numbers 1, 2, 3, and so on."}
+  ];
+  let i=0,run=true;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  async function type(t){say.textContent='';for(let k=0;k<t.length;k++){say.textContent+=t[k];await wait(16)}}
+  function rect(){return board.getBoundingClientRect()}
+  function roomRect(){return room.getBoundingClientRect()}
+  async function step(){
+    const L=lines[i%lines.length];i++;
+    const br=rect(),rr=roomRect();
+    const bx=L.box[0]*br.width,by=L.box[1]*br.height,bw=L.box[2]*br.width,bh=L.box[3]*br.height;
+    // cursor moves to start
+    cur.style.opacity=1;
+    cur.style.left=(br.left-rr.left+bx)+'px';cur.style.top=(br.top-rr.top+by)+'px';
+    await wait(420);
+    // draw marquee (relative to board)
+    marq.style.left=bx+'px';marq.style.top=by+'px';marq.style.width='0px';marq.style.height='0px';marq.style.opacity=1;
+    const t0=performance.now();
+    await new Promise(res=>{(function g(){const p=Math.min(1,(performance.now()-t0)/520);const e=1-Math.pow(1-p,3);
+      marq.style.width=(bw*e)+'px';marq.style.height=(bh*e)+'px';
+      cur.style.left=(br.left-rr.left+bx+bw*e)+'px';cur.style.top=(br.top-rr.top+by+bh*e)+'px';
+      if(p<1)requestAnimationFrame(g);else res()})()});
+    // tools pop near the box
+    tools.style.left=(br.left-rr.left+bx)+'px';tools.style.top=(br.top-rr.top+by-40)+'px';
+    tools.style.opacity=1;tools.style.transform='translateY(0)';
+    cur.style.opacity=0;
+    await wait(520);
+    await type(L.say);
+    await wait(2600);
+    // reset
+    tools.style.opacity=0;tools.style.transform='translateY(4px)';marq.style.opacity=0;
+    say.textContent='';
+    await wait(700);
+    if(run)step();
+  }
+  // start when the stage scrolls into view
+  const so=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){run=true;step();so.disconnect()}}),{threshold:.4});
+  so.observe(document.getElementById('demo'));
+})();
+</script>
+</body>
+</html>
