@@ -13,7 +13,7 @@ Pillow>=10.0.0
 
 # ---- OCR for image-based slides (bundled, no Tesseract/Poppler needed) ----
 rapidocr-onnxruntime>=1.3.0   # ONNX OCR engine, ships its own models
-PyMuPDF>=1.23.0               # rasterize image-only / scanned PDF pages
+pypdfium2>=5.0                # PDFium (BSD/Apache): MrSOLIS's own PDF layer, backend/pdf.py — not AGPL PyMuPDF
 pytesseract>=0.3.10           # optional fallback if Tesseract is installed
 
 # ---- Local AI (RAG over Ollama: qwen3:1.7b + nomic-embed-text) ----

@@ -352,6 +352,26 @@ async def _ollama_embed(inputs, *, timeout):
 # ===========================================================================
 # Public interface (backend-agnostic)
 # ===========================================================================
+def _brain():
+    """The multimodal brain (backend/brain.py), when one is installed — it takes over chat."""
+    try:
+        from backend import brain
+    except ImportError:                      # the frozen app's flat layout
+        import brain
+    return brain if brain.active() else None
+
+
+def _text_only(messages):
+    """Older engines can't see: keep the words of any image-bearing message."""
+    out = []
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, list):
+            c = "\n".join(part.get("text", "") for part in c if isinstance(part, dict) and part.get("type") == "text")
+        out.append({**m, "content": c})
+    return out
+
+
 async def chat(
     messages: list,
     *,
@@ -362,6 +382,11 @@ async def chat(
     timeout: float = 600.0,
 ) -> str:
     """Send a chat completion and return the text reply (OpenAI-style messages)."""
+    b = _brain()
+    if b:
+        return _strip_think(await b.chat(messages, temperature=temperature, max_tokens=max_tokens,
+                                         json_mode=json_mode, timeout=max(timeout, 900.0)))
+    messages = _text_only(messages)
     if BACKEND == "llama":
         return await _llama_chat(messages, temperature=temperature,
                                  max_tokens=max_tokens, json_mode=json_mode)
@@ -376,8 +401,20 @@ async def chat_stream(
     temperature: float = 0.7,
     max_tokens: int | None = None,
     timeout: float = 600.0,
+    info: dict | None = None,
 ):
-    """Async generator yielding token deltas as they are produced."""
+    """Async generator yielding token deltas as they are produced.
+
+    `info` (optional) is filled with {"finish": "stop" | "length"} when the engine says why it
+    stopped (the brain does), so callers know a reply ended by itself rather than ran out.
+    """
+    b = _brain()
+    if b:
+        async for piece in b.chat_stream(messages, temperature=temperature, max_tokens=max_tokens,
+                                         timeout=max(timeout, 900.0), info=info):
+            yield piece
+        return
+    messages = _text_only(messages)
     if BACKEND == "llama":
         async for piece in _llama_chat_stream(messages, temperature=temperature,
                                               max_tokens=max_tokens):
@@ -468,6 +505,12 @@ async def health() -> dict:
     """Readiness probe used by the frontend status chip."""
     info = {"ok": False, "backend": BACKEND, "chat_model": CHAT_MODEL,
             "embed_model": EMBED_MODEL, "models": []}
+    b = _brain()
+    if b:
+        st = b.status()
+        card = b.BY_ID.get(st["selected"], {})
+        return {**info, "ok": st["state"] != "error", "backend": "brain", "chat_model": card.get("name", ""),
+                "brain_state": st["state"], "error": st["error"], "sees": b.sees()}
     if BACKEND == "llama":
         chat_path = _chat_model_path()
         embed_path = _embed_model_path()

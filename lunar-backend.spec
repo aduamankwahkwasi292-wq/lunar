@@ -4,7 +4,7 @@ PyInstaller spec for the Lunar backend sidecar.
 
 Produces a self-contained one-folder binary (dist/lunar-backend/) that the
 Electron app ships as a resource and spawns. Bundles the FastAPI app, the whole
-frontend, and every native dep (PyMuPDF, NumPy, Pillow, RapidOCR/onnxruntime,
+frontend, and every native dep (PDFium via pypdfium2, NumPy, Pillow, RapidOCR/onnxruntime,
 sympy, python-pptx, and the llama.cpp shared library).
 
 Build (run from the project root, on EACH target OS):
@@ -35,7 +35,8 @@ for pkg in [
     "llama_cpp",            # the llama.cpp shared library + python bindings
     "rapidocr_onnxruntime", # OCR + bundled onnx models
     "onnxruntime",
-    "fitz",                 # PyMuPDF
+    "pypdfium2",            # PDFium: MrSOLIS's own PDF layer (backend/pdf.py)
+    "pypdfium2_raw",        # ...and its pdfium library
     "pptx",                 # python-pptx
     "sympy",
     "fastapi",
@@ -44,6 +45,7 @@ for pkg in [
     "httpx",
     "PIL",
     "numpy",
+    "sherpa_onnx",         # voice: speech recognition + text-to-speech
 ]:
     try:
         d, b, h = collect_all(pkg)

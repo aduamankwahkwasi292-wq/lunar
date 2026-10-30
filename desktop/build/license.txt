@@ -1,0 +1,128 @@
+MRSOLIS 3 -- TERMS OF USE
+
+Last updated: 29 October 2026 - Applies to: MrSOLIS 3
+
+
+
+1. ABOUT THESE TERMS
+
+These terms are an agreement between you and Behemoth Group, based in Ghana ("we", "us"). They cover your use of the MrSOLIS 3 study app, including its updates and the "brains" you download through it (together, "MrSOLIS").
+
+By installing or using MrSOLIS you agree to these terms. If you don't agree, don't install or use it.
+
+Under 18? If you are under 18, a parent or guardian must agree to these terms for you, and is responsible for your use of MrSOLIS.
+
+
+2. YOUR LICENCE: WHAT YOU GET WHEN YOU BUY MRSOLIS
+
+1. Pay once, keep it. MrSOLIS costs US$1 (GHS 12 by Mobile Money), paid once. You get a personal licence to install and use it for as long as you like, for your own learning. You don't buy the software itself; we keep ownership of MrSOLIS and everything in it that we made.
+2. One computer. Each licence is for one computer: the one you activate it on. It can't be moved to another computer.
+3. Activation and the daily check. Your licence code needs the internet once, to activate MrSOLIS on your computer. After that, MrSOLIS works fully offline. Once a day, when your computer is online, MrSOLIS checks with us that your licence is still active on that computer. If the licence was refunded, MrSOLIS stops and asks for a licence code. While your computer is offline, MrSOLIS keeps working and checks the next time it is online.
+4. Updates. Updates are free, including ones that bring new or improved brains (the AI models MrSOLIS thinks with). Installing them is your choice: you can always keep using what you have.
+5. Free licences. If we gave you MrSOLIS free (for example as a tester of Lunar, the first version), these terms apply to you in the same way, except that a tester code may work on as many computers as we tell you.
+6. Our CUSTOM engines and their names. MrSOLIS's own engines -- CUSTOM-Mx, CUSTOM-SQE, CUSTOM-Kx, and any later engine whose name starts with "CUSTOM" -- and their names are the property of Behemoth Group. You may use the engines only inside MrSOLIS. Don't use their names, or "CUSTOM-" names like them, anywhere else -- for example for your own app, engine, model, product, service, website, channel or business, or to suggest that something comes from us -- unless we give you permission in writing.
+
+3. WHAT YOU MAY NOT DO
+
+You may not:
+
+1. share, sell, rent, lend or publish your licence code, or install MrSOLIS on more computers than your licence allows;
+2. crack MrSOLIS, or bypass, disable or tamper with its licence checks;
+3. copy and give away MrSOLIS, or publish changed versions of it;
+4. take apart (decompile or reverse engineer) MrSOLIS's own code, except where the law allows it, or where an open-source licence in section 4 lets you do it for that part;
+5. use MrSOLIS against the law, or in any way listed in section 5.3;
+6. use the names of our CUSTOM engines anywhere, as section 2.6 explains.
+
+4. OPEN-SOURCE PARTS
+
+MrSOLIS is built with open software and open AI models made by others. Each comes with its own licence, and those licences -- not these terms -- decide what you may do with those parts. You can read them in MrSOLIS under Settings -> About -> Licences & credits.
+
+Nothing in these terms limits your rights under those licences. For example, under the GNU LGPL you may replace MrSOLIS's FFmpeg files with your own build of FFmpeg.
+
+
+5. USING MRSOLIS WELL
+
+
+5.1 MrSOLIS can be wrong
+
+MrSOLIS's tutor is an AI that runs on your computer. Like every AI it makes mistakes, including in facts, calculations and its reading of your slides.
+
+- Check important answers against your notes, textbooks and lecturers, especially before an exam or an assessment.
+- MrSOLIS is a study aid. It is not professional advice -- medical, legal, financial, engineering or otherwise. Don't rely on it for decisions about health, safety, money or the law.
+Our maths engines are great, but not perfect. CUSTOM-Mx and CUSTOM-SQE work maths out exactly instead of guessing, so they are far more reliable at maths than the AI tutor. They can still misread a question, or not manage one. Behemoth Group will keep updating them to make them better, and those updates are free (section 2.4).
+
+
+5.2 Learn honestly
+
+MrSOLIS is for learning. Follow the rules of your school or university. Don't use MrSOLIS to cheat in an exam or a test, or hand in its work as your own where that isn't allowed.
+
+
+5.3 Uses that are not allowed
+
+MrSOLIS's speaking voice is the Supertonic 2 model by Supertone, which is licensed under the BigScience OpenRAIL-M licence. That licence requires us to make the restrictions below part of these terms, and to tell you that the voice model is subject to them (its licence is in Licences & credits).
+
+For simplicity, they apply to your use of all of MrSOLIS. You agree not to use MrSOLIS, or any part of it:
+
+(a) in any way that breaks any national, federal, state, local or international law or regulation;
+(b) to exploit or harm minors in any way, or to try to;
+(c) to create or spread information you can check is false, in order to harm others;
+(d) to create or spread personal information that can be used to harm someone;
+(e) to create or spread information or content (for example pictures, code, posts or articles) and put it anywhere (for example through a bot that posts automatically) without clearly saying that it was made by a machine;
+(f) to defame, insult or harass others;
+(g) to pretend to be someone else, or try to (for example with deepfakes), without their consent;
+(h) for fully automatic decisions that harm a person's legal rights, or that create or change a binding obligation;
+(i) in any way meant to, or that ends up, discriminating against or harming people or groups because of their online or offline social behaviour, or their known or predicted personal or personality traits;
+(j) to exploit the weaknesses of a group of people (because of their age, or social, physical or mental characteristics) in order to change how one of them behaves, in a way that causes or is likely to cause physical or psychological harm to that person or to someone else;
+(k) in any way meant to, or that ends up, discriminating against people or groups because of characteristics or categories protected by law;
+(l) to give medical advice, or to interpret medical results;
+(m) to create or spread information to be used in the administration of justice, law enforcement, or immigration or asylum processes -- for example to predict that someone will commit fraud or a crime, by profiling text, drawing causal links between statements in documents, or targeting people indiscriminately or arbitrarily.
+Studying a subject, such as medicine or law, is not "giving advice". You are welcome to learn about anything.
+
+If you break this section we may end your licence (section 9).
+
+
+6. YOUR MATERIAL AND YOUR PRIVACY
+
+1. It stays on your computer. Your slides, notes, photos, videos, recordings, questions and study history are read and processed on your computer. We don't collect them, upload them or see them. MrSOLIS has no account, no adverts and no tracking or analytics.
+2. The microphone is used only while you use Mic or Live. What you say is turned into text on your computer and is not recorded or sent anywhere.
+3. Your material, your responsibility. Only load material you have the right to use -- for example your lecturer's slides, for your own study.
+4. When MrSOLIS uses the internet. MrSOLIS works offline. It only connects to the internet:
+   - to check whether a newer version exists, a few seconds after it starts, when your computer is online (a small request to GitHub). If there is one, MrSOLIS tells you its size and asks you before downloading it. A version you chose to download installs when you choose "Restart now" or next close MrSOLIS;
+   - to download a brain, only when you choose one in Settings (from GitHub and Hugging Face);
+   - to activate your licence, once, and to check it once a day when your computer is online (section 2.3);
+   - to pay, when you buy MrSOLIS.
+These connections send only what any download sends (such as your computer's internet address and the app's version), never your study material. Activating and checking your licence also sends your licence code and a computer code: a one-way scrambled form of your computer's Windows ID, which tells us it is the same computer but not who you are or anything on it. We keep these to run your licence. Buying inside MrSOLIS sends your email address to our payment provider (Flutterwave or Paystack), which takes the payment (Mobile Money or card) and emails you the receipt. If you pay by Mobile Money straight to our number instead, MrSOLIS sends us your email and the Mobile Money number you pay from, so we can match your payment. We keep your email, the number and the payment reference with your licence, to handle refunds and questions. We never see your card or Mobile Money PIN. The services these connections reach have their own privacy terms.
+
+5. Removing everything. Uninstall MrSOLIS and delete its data folder (%APPDATA%\lunar-desktop on Windows) to remove your study material and history from the computer.
+
+7. PAYMENT AND REFUNDS
+
+MrSOLIS costs US$1 (GHS 12), paid once, and its updates are free (section 2.4). You pay inside MrSOLIS by Mobile Money to our number, in cedis, with the reference MrSOLIS shows you: we confirm the payment by hand, usually within a few hours, and MrSOLIS then activates by itself. Where MrSOLIS offers it, you can also pay through our payment provider, Flutterwave or Paystack (Mobile Money or card, from Ghana or abroad), whose own terms apply to the payment. Keep your proof of payment (the Mobile Money message, or the receipt in your email).
+
+Refunds. If MrSOLIS won't run on your computer, email us within 24 hours of buying. Attach your proof of payment and a screen recording that shows the problem on your computer -- MrSOLIS failing to install, open or work. If the recording shows the problem, we will refund you. Without it we can't, because we can't tell otherwise. After a refund, your licence code stops working.
+
+Nothing in these terms takes away rights you have under consumer law where you live.
+
+
+8. WHAT WE PROMISE, AND WHAT WE DON'T
+
+1. We work hard to make MrSOLIS useful and reliable. But, as far as the law allows, MrSOLIS is provided "as is", without promises that it will be free of mistakes, always available, or right for a particular purpose.
+2. MrSOLIS needs a computer that meets its requirements: Windows 10 or 11 (64-bit), at least 4 GB of RAM (8 GB for the bigger brains), and about 3 GB of free disk space. Check them before you buy.
+3. Limit of liability. As far as the law allows, we are not responsible for indirect or consequential losses (for example lost marks, lost data or lost opportunities). Our total responsibility to you for anything to do with MrSOLIS is limited to the amount you paid for it. Nothing here limits responsibility that the law doesn't allow us to limit (for example for death or injury caused by negligence, or for fraud).
+4. Keep copies. MrSOLIS keeps your work on your computer. Keep copies of anything important, because computers fail.
+
+9. ENDING
+
+You can stop using MrSOLIS at any time by uninstalling it.
+
+We may end your licence if you seriously break these terms -- for example by cracking MrSOLIS, selling or sharing licence codes, or breaking section 5.3. Where it is reasonable, we will warn you first and give you a chance to put things right.
+
+When your licence ends, you must stop using MrSOLIS and remove it. Sections 2.6, 4, 5.3, 8 and 10 continue to apply.
+
+
+10. GENERAL
+
+1. Changes to these terms. New versions of MrSOLIS may come with updated terms. The terms that came with a version apply to your use of that version.
+2. Law. These terms are governed by the laws of the Republic of Ghana. Disputes will be heard by the courts of Ghana, unless the consumer law where you live gives you the right to go to your local courts.
+3. If part of these terms can't be enforced, the rest still applies.
+4. Contact: jonsonwhocancreate@gmail.com

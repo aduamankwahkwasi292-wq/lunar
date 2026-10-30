@@ -6,12 +6,13 @@ images. Native text is extracted where present, and OCR (RapidOCR, ONNX, fully
 bundled — no Tesseract/Poppler system install needed) is used for:
 
   * standalone image files,
-  * image-only / scanned PDF pages (rasterized with PyMuPDF), and
+  * image-only / scanned PDF pages (drawn by MrSOLIS's own PDF layer, backend/pdf.py, on PDFium), and
   * pictures embedded inside PowerPoint slides.
 """
 
 import io
 import os
+import sys
 import threading
 
 # Minimum characters a PDF page / image must yield before we trust the native
@@ -147,14 +148,15 @@ def _extract_pdf(file_path: str) -> str:
     if combined:
         return combined
     if not native_by_page and rasterizer is None:
-        return "[Could not read PDF. Install PyPDF2 and PyMuPDF for text + OCR support.]"
+        return "[Could not read this PDF.]"
     return combined
 
 
 def _open_pdf_for_render(file_path: str):
+    """The PDF opened with MrSOLIS's own PDF layer (backend/pdf.py, PDFium), or None."""
     try:
-        import fitz  # PyMuPDF
-        return fitz.open(file_path)
+        from backend import pdf
+        return pdf.Doc(file_path)
     except Exception:
         return None
 
@@ -162,11 +164,7 @@ def _open_pdf_for_render(file_path: str):
 def _ocr_pdf_page(doc, page_index: int, dpi: int = 200) -> str:
     """Render a single PDF page to an image and OCR it."""
     try:
-        from PIL import Image
-        page = doc.load_page(page_index)
-        pix = page.get_pixmap(dpi=dpi)
-        img = Image.open(io.BytesIO(pix.tobytes("png")))
-        return _ocr_image_obj(img)
+        return _ocr_image_obj(doc.render(page_index, dpi))
     except Exception:
         return ""
 
@@ -381,9 +379,10 @@ def extract_rich_slides(file_path: str, media_dir: str) -> list:
     """Split a document into slides.
 
     PDFs and images become "board" slides: the page is rendered (lazily, on
-    demand) as a chalk-on-transparent image so it sits on the green board with
-    perfect math symbols / figures / number lines — native text is kept only for
-    grounding. PPTX (no local renderer) keeps the verbatim text+figure blocks.
+    demand) as an image in its own colours, so it shows on the board exactly as in
+    the file — perfect math symbols / figures / number lines; native text is kept only for
+    grounding. PowerPoint decks become board slides too when an office suite on the computer can
+    draw them (see office_to_pdf); otherwise they keep the verbatim text+figure blocks.
     """
     try:
         os.makedirs(media_dir, exist_ok=True)
@@ -392,7 +391,9 @@ def extract_rich_slides(file_path: str, media_dir: str) -> list:
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in ('.pptx', '.ppt'):
-            slides = _pptx_rich(file_path, media_dir)
+            # the real slides: drawn by PowerPoint / WPS / LibreOffice if the computer has one, else by
+            # MrSOLIS itself (pptx_render); text and pictures only as a last resort
+            slides = _ppt_board_slides(file_path) or _pptx_drawn_slides(file_path) or _pptx_rich(file_path, media_dir)
         elif ext == '.pdf':
             slides = _pdf_slides_meta(file_path)
         elif ext in ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif', '.webp'):
@@ -410,46 +411,41 @@ def extract_rich_slides(file_path: str, media_dir: str) -> list:
     return cleaned
 
 
-# ----- board slides: render the real page recolored to chalk-on-board -----
-def _page_links(page) -> list:
+# ----- board slides: render the real page, in its own colours -----
+def _page_links(doc, pi) -> list:
     links = []
     try:
-        for ln in page.get_links():
-            uri = ln.get("uri")
-            if uri:
-                links.append({"text": uri, "url": uri})
+        for uri in doc.links(pi):
+            links.append({"text": uri, "url": uri})
     except Exception:
         pass
     return _dedupe_links(links)
 
 
 def _pdf_slides_meta(file_path: str) -> list:
-    """One board slide per PDF page: native text (grounding) + lazy chalk render."""
-    try:
-        import fitz  # PyMuPDF
-    except Exception:
+    """One board slide per PDF page: native text (grounding) + lazy colour render."""
+    doc = _open_pdf_for_render(file_path)
+    if doc is None:
         return _text_rich(_extract_pdf(file_path))
-    doc = fitz.open(file_path)
     out = []
     try:
         for pi in range(doc.page_count):
-            page = doc.load_page(pi)
-            text = (page.get_text() or "").strip()
+            text = doc.text(pi)
             # Blank page: nothing but maybe a page number, no images, no real
             # drawings. Cheap native check (no render) so we can tell the user.
             compact = _re.sub(r"\s+", "", text)
             page_num_only = bool(_re.fullmatch(r"\d{1,4}", compact or ""))
             has_content = len(compact) > 2 and not page_num_only
             try:
-                n_draw = len(page.get_drawings())
-                n_img = len(page.get_images())
+                objs = doc.objects(pi)
+                n_draw, n_img = len(objs["paths"]), len(objs["images"])
             except Exception:
                 n_draw, n_img = 0, 0
             blank = (not has_content) and n_img == 0 and n_draw <= 2
             out.append({
                 "board": "pdf", "page": pi,
                 "text": text, "ocr": "",
-                "links": _page_links(page),
+                "links": _page_links(doc, pi),
                 "examinable": True,
                 "blank": blank,
                 "title": _first_line(text) or f"Slide {pi + 1}",
@@ -463,7 +459,7 @@ def _pdf_slides_meta(file_path: str) -> list:
 
 
 def _image_slide_meta(file_path: str) -> list:
-    """A single image file becomes one board slide (recolored), OCR for grounding."""
+    """A single image file becomes one board slide (shown as it is), OCR for grounding."""
     ocr = _ocr_image_obj(file_path) or ""
     return [{
         "board": "image", "page": 0,
@@ -473,76 +469,53 @@ def _image_slide_meta(file_path: str) -> list:
     }]
 
 
-import numpy as _np
-
-# Precomputed alpha lookup: white paper (255) → 0 (transparent), ink (dark) →
-# opaque, faint strokes boosted. A LUT gather is far cheaper than per-pixel math.
-_ALPHA_LUT = _np.clip((255 - _np.arange(256, dtype=_np.float32) - 12.0) * 1.7, 0, 255).astype(_np.uint8)
-_CHALK = (234, 240, 231)   # warm chalk white
+_MAX_SIDE = 2200          # big phone photos are scaled down to this (longest side), plenty for the board
 
 
-def _chalk_from_rgb(arr):
-    """Recolor an RGB(A) page raster to chalk-on-transparent RGBA.
-
-    White paper → transparent (the board shows through); everything darker →
-    warm chalk, opacity by how dark it is — the authentic chalkboard look. Pure
-    integer / LUT work (no axis-2 reductions or float math) so a full page
-    recolors in tens of ms. Returns (rgba_uint8_array, ink_coverage_fraction).
-    """
-    import numpy as np
-
-    a = arr
-    if a.ndim == 2:
-        gray = a
-    else:
-        r = a[..., 0].astype(np.uint16)
-        g = a[..., 1].astype(np.uint16)
-        b = a[..., 2].astype(np.uint16)
-        gray = ((r * 77 + g * 150 + b * 29) >> 8).astype(np.uint8)   # fast luminance
-    alpha = _ALPHA_LUT[gray]
-    h, w = gray.shape
-    out = np.empty((h, w, 4), dtype=np.uint8)
-    out[..., 0] = _CHALK[0]
-    out[..., 1] = _CHALK[1]
-    out[..., 2] = _CHALK[2]
-    out[..., 3] = alpha
-    coverage = float((alpha > 20).mean())
-    return out, coverage
-
-
-def _save_chalk_png(rgba, out_path: str):
-    """Encode an RGBA chalk array to PNG quickly (low compression — cached anyway)."""
-    from PIL import Image
-    Image.fromarray(rgba, "RGBA").save(out_path, format="PNG", compress_level=1)
-
-
-def render_pdf_page_chalk(file_path: str, page_index: int, out_path: str, dpi: int = 130) -> str:
-    """Render a PDF page to a chalk-on-board PNG at out_path.
-
-    Reads the rasterised pixels straight from the PyMuPDF pixmap (no intermediate
-    PNG encode/decode), recolors, then writes one PNG — much faster than the
-    previous double round-trip.
-    """
-    import fitz
-    import numpy as np
-
-    doc = fitz.open(file_path)
-    try:
-        page = doc.load_page(max(0, min(page_index, doc.page_count - 1)))
-        pix = page.get_pixmap(dpi=dpi, alpha=False)
-        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-        if pix.n >= 4:
-            arr = arr[..., :3]
-        elif pix.n == 1:
-            arr = np.repeat(arr, 3, axis=2)
-        rgba, _ = _chalk_from_rgb(arr)
-    finally:
-        try:
-            doc.close()
-        except Exception:
-            pass
-    _save_chalk_png(rgba, out_path)
+def render_pdf_page(file_path: str, page_index: int, out_path: str, dpi: int = 130) -> str:
+    """Render a PDF page to a PNG at out_path, in its own colours — exactly as it looks in the file."""
+    from backend import pdf
+    with pdf.Doc(file_path) as doc:
+        doc.render(page_index, dpi).save(out_path, format="PNG", compress_level=1)     # RGB, white paper
     return out_path
+
+
+def slide_has_figure(file_path: str, slide: dict) -> bool:
+    """Does this board slide hold a picture, chart or drawn diagram worth *looking* at?
+
+    Looking at a slide costs a brain that sees ~15 s on a laptop CPU, so text-only
+    slides are taught from their words alone. Small pictures (logos, icons) don't count.
+    """
+    board = slide.get("board")
+    if board == "image":
+        return True
+    try:
+        if board == "pdf":
+            from backend import pdf
+            with pdf.Doc(ppt_render_path(file_path)) as doc:
+                objs = doc.objects(slide.get("page", 0))
+            w, h = objs["size"]
+            area = (w * h) or 1
+            if any(pdf.area(b) / area > 0.06 for b in objs["images"]):
+                return True
+            drawn = [b for b in objs["paths"] if pdf.area(b) / area > 0.0005]
+            return len(drawn) >= 12                        # a chart, circuit or diagram drawn in lines
+        if board == "pptx":
+            from pptx import Presentation
+            prs = Presentation(file_path)
+            every = list(prs.slides)                       # "page" counts hidden slides too
+            sl = every[slide.get("page", 0)] if slide.get("page", 0) < len(every) else None
+            if sl is None:
+                return False
+            area = (prs.slide_width or 1) * (prs.slide_height or 1)
+            for sh in sl.shapes:
+                big = (sh.width or 0) * (sh.height or 0) / area > 0.06
+                if big and (sh.shape_type in (3, 6, 13) or getattr(sh, "has_chart", False)
+                            or sh._element.find(".//{*}relIds") is not None):   # picture, chart, group, SmartArt
+                    return True
+    except Exception:
+        return False
+    return False
 
 
 def pdf_page_words(file_path: str, page_index: int) -> list:
@@ -550,21 +523,14 @@ def pdf_page_words(file_path: str, page_index: int) -> list:
 
     Returns a reading-ordered list of {x, y, w, h, t} where x/y/w/h are 0..1
     fractions of the page width/height, so the frontend can overlay an invisible,
-    selectable <span> per word on top of the chalk image at any display size.
+    selectable <span> per word on top of the page image at any display size.
     """
-    import fitz
-    doc = fitz.open(file_path)
-    try:
-        page = doc.load_page(max(0, min(page_index, doc.page_count - 1)))
-        pw = float(page.rect.width) or 1.0
-        ph = float(page.rect.height) or 1.0
-        # sort by block, line, word so selection follows reading order
-        raw = page.get_text("words")
-    finally:
-        try:
-            doc.close()
-        except Exception:
-            pass
+    from backend import pdf
+    with pdf.Doc(file_path) as doc:
+        pw, ph = doc.size(page_index)
+        raw = doc.words(page_index)
+    pw, ph = float(pw) or 1.0, float(ph) or 1.0
+    # sort by block, line, word so selection follows reading order
     raw.sort(key=lambda w: (w[5], w[6], w[7]))
     out = []
     for x0, y0, x1, y1, text, *_rest in raw:
@@ -587,18 +553,11 @@ def pdf_page_lines(file_path: str, page_index: int) -> list:
     into the line above or below the way per-word spans do. Returns reading-ordered
     {x, y, w, h, t} where t is the full line text and x/y/w/h are 0..1 fractions.
     """
-    import fitz
-    doc = fitz.open(file_path)
-    try:
-        page = doc.load_page(max(0, min(page_index, doc.page_count - 1)))
-        pw = float(page.rect.width) or 1.0
-        ph = float(page.rect.height) or 1.0
-        raw = page.get_text("words")
-    finally:
-        try:
-            doc.close()
-        except Exception:
-            pass
+    from backend import pdf
+    with pdf.Doc(file_path) as doc:
+        pw, ph = doc.size(page_index)
+        raw = doc.words(page_index)
+    pw, ph = float(pw) or 1.0, float(ph) or 1.0
     # group by (block, line); each word tuple is (x0,y0,x1,y1,text,block,line,word)
     groups = {}
     for w in raw:
@@ -624,34 +583,35 @@ def pdf_page_lines(file_path: str, page_index: int) -> list:
     return lines
 
 
-def render_image_chalk(src_path: str, out_path: str) -> str:
-    """Render an uploaded image to a chalk-on-board PNG at out_path."""
-    from PIL import Image
-    import numpy as np
-    img = Image.open(src_path).convert("RGB")
-    rgba, _ = _chalk_from_rgb(np.asarray(img))
-    _save_chalk_png(rgba, out_path)
+def render_image(src_path: str, out_path: str) -> str:
+    """Render an uploaded image to a PNG at out_path, in its own colours (upright, not oversized)."""
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(src_path))     # phone photos: the way up they were taken
+    if img.mode in ("RGBA", "LA", "P"):                       # see-through parts show as white paper
+        rgba = img.convert("RGBA")
+        img = Image.new("RGB", rgba.size, "white")
+        img.paste(rgba, mask=rgba.getchannel("A"))
+    else:
+        img = img.convert("RGB")
+    if max(img.size) > _MAX_SIDE:
+        img.thumbnail((_MAX_SIDE, _MAX_SIDE))
+    img.save(out_path, format="PNG", compress_level=1)
     return out_path
 
 
 def warm_render():
-    """Pre-import/JIT the render stack so the first slide isn't a ~5s cold start.
+    """Pre-import the render stack so the first slide isn't a ~5s cold start.
 
-    fitz + PIL + numpy import (and the first get_pixmap / PNG encode) cost a few
-    seconds the first time; doing it once at startup makes every real render fast.
+    The PDF engine + PIL import (and the first render / PNG encode) cost a few seconds
+    the first time; doing it once at startup makes every real render fast.
     """
     try:
         import io as _io
-        import fitz
-        import numpy as np
+        from backend import pdf
         from PIL import Image
-        doc = fitz.open()
-        doc.new_page(width=40, height=40)
-        pix = doc.load_page(0).get_pixmap(dpi=72, alpha=False)
-        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-        rgba, _ = _chalk_from_rgb(arr)
-        Image.fromarray(rgba, "RGBA").save(_io.BytesIO(), format="PNG", compress_level=1)
-        doc.close()
+        with pdf.new_blank() as doc:
+            doc.render(0, 72).save(_io.BytesIO(), format="PNG", compress_level=1)
+        Image.new("RGB", (8, 8), "white").save(_io.BytesIO(), format="PNG", compress_level=1)
     except Exception:
         pass
 
@@ -668,8 +628,9 @@ def slide_plain_text(slide) -> str:
 
 def _first_line(text: str) -> str:
     for line in (text or "").splitlines():
-        line = line.strip()
-        if len(line) >= 3:
+        line = line.strip().lstrip("•▪◦●○■□➢➤►▶✓✔-–—*· \t").strip()
+        # not a page number or a footer date ("14", "10/18/2026") — slides exported to PDF start with those
+        if len(line) >= 3 and not _re.fullmatch(r"[\d\s/.:\-–|]+", line):
             return line[:60]
     return "Slide"
 
@@ -704,6 +665,239 @@ def _text_rich(text: str) -> list:
          "links": [], "examinable": True}
         for t in _autosplit(text)
     ]
+
+
+# ----- PowerPoint: an office suite on this computer draws the real slides -----
+# python-pptx can read a deck's text and pictures but can't draw a slide, so laying them out
+# ourselves "mangled" decks (lost positions, backgrounds, shapes, colours). Instead the deck is
+# turned into a PDF by PowerPoint (or WPS, or LibreOffice) — exactly what "Save as PDF" makes —
+# and that PDF goes through the same board pipeline as any PDF. With no office suite on the
+# computer, the old text-and-pictures layout is the fallback.
+_PPT_TO_PDF_PS1 = r"""
+param([string]$Src, [string]$Dst, [string]$ProgId)
+$ErrorActionPreference = 'Stop'
+$app = New-Object -ComObject $ProgId
+$before = 0
+try { $before = $app.Presentations.Count } catch {}
+$pres = $null
+try {
+    $pres = $app.Presentations.Open($Src, -1, 0, 0)     # read-only, keep its name, no window
+    $pres.SaveAs($Dst, 32)                               # 32 = PDF
+} finally {
+    if ($pres) { try { $pres.Close() } catch {} }
+    # never close the student's own PowerPoint: quit only if nothing else was open
+    try { if ($before -eq 0 -and $app.Presentations.Count -eq 0) { $app.Quit() } } catch {}
+    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($app)
+}
+"""
+_OFFICE_APPS = [("PowerPoint.Application", "PowerPoint"), ("KWPP.Application", "WPS")]
+
+
+def _com_registered(progid: str) -> bool:
+    try:
+        import winreg
+        winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, progid + "\\CLSID"))
+        return True
+    except OSError:
+        return False
+
+
+def _ppt_via_com(src: str, dst: str, progid: str, timeout: int) -> bool:
+    import subprocess
+    import tempfile
+    script = os.path.join(tempfile.gettempdir(), "mrsolis_ppt_to_pdf.ps1")
+    try:
+        with open(script, "w", encoding="utf-8") as f:
+            f.write(_PPT_TO_PDF_PS1)
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+             "-File", script, os.path.abspath(src), os.path.abspath(dst), progid],
+            capture_output=True, timeout=timeout, creationflags=0x08000000)     # no console window
+    except Exception:
+        return False
+    return os.path.isfile(dst) and os.path.getsize(dst) > 0
+
+
+def _soffice_path():
+    import shutil
+    found = shutil.which("soffice") or shutil.which("libreoffice")
+    if found:
+        return found
+    for p in (r"C:\Program Files\LibreOffice\program\soffice.exe",
+              r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+              "/Applications/LibreOffice.app/Contents/MacOS/soffice"):
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def _ppt_via_libreoffice(src: str, dst: str, timeout: int) -> bool:
+    import shutil
+    import subprocess
+    import tempfile
+    soffice = _soffice_path()
+    if not soffice:
+        return False
+    out_dir = tempfile.mkdtemp(prefix="mrsolis_lo_")
+    profile = tempfile.mkdtemp(prefix="mrsolis_lo_profile_")      # works even while LibreOffice is open
+    try:
+        subprocess.run(
+            [soffice, "--headless", "--norestore", f"-env:UserInstallation=file:///{profile.replace(os.sep, '/')}",
+             "--convert-to", "pdf", "--outdir", out_dir, os.path.abspath(src)],
+            capture_output=True, timeout=timeout, creationflags=0x08000000 if sys.platform == "win32" else 0)
+        made = os.path.join(out_dir, os.path.splitext(os.path.basename(src))[0] + ".pdf")
+        if os.path.isfile(made) and os.path.getsize(made) > 0:
+            shutil.move(made, dst)
+            return True
+    except Exception:
+        pass
+    finally:
+        shutil.rmtree(out_dir, ignore_errors=True)
+        shutil.rmtree(profile, ignore_errors=True)
+    return False
+
+
+def office_to_pdf(src: str, dst: str, timeout: int = 300):
+    """Turn a PowerPoint file into a PDF with an office suite on this computer.
+    Returns which one drew it ("PowerPoint", "WPS", "LibreOffice"), or None if there's none.
+    LUNAR_NO_OFFICE=1 skips them (MrSOLIS then draws the slides itself — for testing that path)."""
+    if os.environ.get("LUNAR_NO_OFFICE"):
+        return None
+    if sys.platform == "win32":
+        for progid, label in _OFFICE_APPS:
+            if _com_registered(progid) and _ppt_via_com(src, dst, progid, timeout):
+                return label
+    if _ppt_via_libreoffice(src, dst, timeout):
+        return "LibreOffice"
+    return None
+
+
+def ppt_render_path(file_path: str) -> str:
+    """The file a deck's board slides are drawn from: for a PowerPoint deck, its PDF next to it."""
+    if os.path.splitext(file_path)[1].lower() in (".pptx", ".ppt"):
+        pdf = os.path.splitext(file_path)[0] + ".pdf"
+        if os.path.isfile(pdf):
+            return pdf
+    return file_path
+
+
+def _pptx_titles_and_notes(file_path: str):
+    """Per slide: its title and speaker notes, from the PowerPoint file (the PDF has neither)."""
+    try:
+        from pptx import Presentation
+        prs = Presentation(file_path)
+    except Exception:
+        return []
+    out = []
+    for slide in prs.slides:
+        if slide._element.get("show") == "0":          # hidden slides aren't in the PDF either
+            continue
+        title, notes = "", ""
+        try:
+            if slide.shapes.title is not None:
+                title = (slide.shapes.title.text or "").strip()
+        except Exception:
+            pass
+        try:
+            if slide.has_notes_slide:
+                notes = (slide.notes_slide.notes_text_frame.text or "").strip()
+        except Exception:
+            pass
+        out.append((title, notes))
+    return out
+
+
+def _ppt_board_slides(file_path: str):
+    """A PowerPoint deck as real slide images (via an office suite), or None if none is installed."""
+    pdf = os.path.splitext(file_path)[0] + ".pdf"
+    if not os.path.isfile(pdf) and not office_to_pdf(file_path, pdf):
+        return None
+    slides = _pdf_slides_meta(pdf)
+    extra = _pptx_titles_and_notes(file_path) if file_path.lower().endswith(".pptx") else []
+    for s, (title, notes) in zip(slides, extra):
+        if title:
+            s["title"] = " ".join(title.split())[:60]
+        if notes:
+            s["text"] = (s.get("text", "") + "\n\nSpeaker notes:\n" + notes).strip()
+            s["blank"] = False
+    return slides
+
+
+def _pptx_renderer():
+    try:
+        from backend import pptx_render
+    except ImportError:                     # the frozen app's flat layout
+        import pptx_render
+    return pptx_render
+
+
+def _pptx_drawn_slides(file_path: str):
+    """A PowerPoint deck MrSOLIS draws itself (pptx_render) — for computers with no office suite.
+    Board slides of kind "pptx": the text (for teaching), title, speaker notes and links come from the
+    file; a slide that is just a picture is read with OCR. None if the file can't be read as a deck."""
+    try:
+        pr = _pptx_renderer()
+        prs = pr._open(file_path)
+    except Exception:
+        return None
+    A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    RID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+    out = []
+    for i, slide in enumerate(prs.slides):
+        if slide._element.get("show") == "0":          # hidden: not shown in PowerPoint either
+            continue
+        paras = []
+        roots = [slide._element]
+        try:                                           # SmartArt keeps its words in its own parts
+            from lxml import etree
+            for rel in slide.part.rels.values():
+                if rel.reltype.endswith("/diagramDrawing"):
+                    roots.append(etree.fromstring(rel.target_part.blob))
+        except Exception:
+            pass
+        for root in roots:
+            for p in root.iter(A + "p"):
+                t = "".join(x.text or "" for x in p.iter(A + "t")).strip()
+                if t:
+                    paras.append(t)
+        text = "\n".join(paras)
+        links = []
+        for h in slide._element.iter(A + "hlinkClick"):
+            rel = slide.part.rels.get(h.get(RID)) if h.get(RID) else None
+            if rel is not None and rel.is_external and str(rel.target_ref).startswith(("http", "mailto")):
+                links.append({"text": rel.target_ref, "url": rel.target_ref})
+        ocr = ""
+        if len(text) < 20:                             # a picture of a slide: read it for teaching
+            try:
+                pics = [sh for sh in slide.shapes if sh.shape_type == 13]
+                if pics:
+                    from PIL import Image
+                    big = max(pics, key=lambda sh: (sh.width or 0) * (sh.height or 0))
+                    ocr = _ocr_image_obj(Image.open(io.BytesIO(big.image.blob))) or ""
+            except Exception:
+                ocr = ""
+        title = ""
+        try:
+            if slide.shapes.title is not None:
+                title = " ".join((slide.shapes.title.text or "").split())[:60]
+        except Exception:
+            pass
+        try:
+            if slide.has_notes_slide:
+                notes = (slide.notes_slide.notes_text_frame.text or "").strip()
+                if notes:
+                    text = (text + "\n\nSpeaker notes:\n" + notes).strip()
+        except Exception:
+            pass
+        out.append({"board": "pptx", "page": i, "text": text, "ocr": ocr, "links": _dedupe_links(links),
+                    "examinable": True, "blank": False,
+                    "title": title or (_first_line(text or ocr) if (text or ocr).strip() else f"Slide {len(out) + 1}")})
+    return out or None
+
+
+def render_pptx_slide(file_path: str, index: int, out_png: str) -> list:
+    """Draw one slide of a deck (no office suite needed); returns its words for the selectable layer."""
+    return _pptx_renderer().render_slide(file_path, index, out_png)
 
 
 def _pptx_rich(file_path: str, media_dir: str) -> list:
@@ -794,101 +988,6 @@ def _pptx_rich(file_path: str, media_dir: str) -> list:
             "links": _dedupe_links(links),
             "examinable": True,
         })
-    return out
-
-
-def _pdf_rich(file_path: str, media_dir: str) -> list:
-    try:
-        import fitz  # PyMuPDF
-    except Exception:
-        return _text_rich(_extract_pdf(file_path))
-    from PIL import Image
-
-    doc = fitz.open(file_path)
-    out = []
-    try:
-        for pi in range(doc.page_count):
-            page = doc.load_page(pi)
-            page_area = float(abs(page.rect.width * page.rect.height)) or 1.0
-            native_text = (page.get_text() or "").strip()
-            try:
-                tblocks = page.get_text("blocks") or []
-            except Exception:
-                tblocks = []
-
-            img_infos = []  # (xref, y0, area)
-            try:
-                for img in page.get_images(full=True):
-                    xref = img[0]
-                    try:
-                        rects = page.get_image_rects(xref)
-                    except Exception:
-                        rects = []
-                    if rects:
-                        r = rects[0]
-                        img_infos.append((xref, float(r.y0), float(abs(r.width * r.height))))
-                    else:
-                        img_infos.append((xref, 0.0, 0.0))
-            except Exception:
-                img_infos = []
-
-            items = []  # (y0, block)
-            ocr_all = []
-            big_img = any((a / page_area) >= _FULLSLIDE_IMG_FRAC for _, _, a in img_infos)
-
-            if big_img and len(native_text) < _MIN_NATIVE_CHARS:
-                # scanned page → OCR the whole page as text, show no figure
-                ocr = _ocr_pdf_page(doc, pi) or ""
-                if ocr:
-                    items.append((0.0, {"type": "text", "text": ocr}))
-            else:
-                for b in tblocks:
-                    if len(b) >= 5 and isinstance(b[4], str) and b[4].strip():
-                        items.append((float(b[1]), {"type": "text", "text": b[4].strip()}))
-                for xref, y0, area in img_infos:
-                    if (area / page_area) >= _FULLSLIDE_IMG_FRAC:
-                        continue  # page-background scan, not a figure
-                    try:
-                        info = doc.extract_image(xref)
-                        data = info.get("image")
-                        iext = info.get("ext", "png")
-                        ocr = _ocr_image_obj(Image.open(io.BytesIO(data))) or ""
-                        if ocr:
-                            ocr_all.append(ocr)
-                        fn = _save_media(media_dir, f"p{pi}_i{xref}", data, iext)
-                        if fn:
-                            items.append((y0, {"type": "image", "src": fn, "alt": ocr[:200]}))
-                    except Exception:
-                        pass
-                if not any(it[1]["type"] == "text" for it in items):
-                    ocr = _ocr_pdf_page(doc, pi) or ""
-                    if ocr:
-                        items.append((0.0, {"type": "text", "text": ocr}))
-
-            links = []
-            try:
-                for ln in page.get_links():
-                    uri = ln.get("uri")
-                    if uri:
-                        links.append({"text": uri, "url": uri})
-            except Exception:
-                pass
-
-            items.sort(key=lambda t: t[0])
-            blocks = [b for _, b in items]
-            text_only = "\n".join(b["text"] for b in blocks if b["type"] == "text")
-            out.append({
-                "blocks": blocks,
-                "text": text_only,
-                "ocr": "\n".join(ocr_all),
-                "links": _dedupe_links(links),
-                "examinable": True,
-            })
-    finally:
-        try:
-            doc.close()
-        except Exception:
-            pass
     return out
 
 

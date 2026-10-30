@@ -4,6 +4,13 @@
 models/
 *.gguf
 
+# The AI engine and FFmpeg programs (fetched, pinned and checked, with scripts/fetch_runtime.py).
+# Kept: runtime/ffmpeg/README-MrSOLIS.txt and COPYING.GPLv3.txt.
+runtime/llama.cpp/
+runtime/ffmpeg/*
+!runtime/ffmpeg/README-MrSOLIS.txt
+!runtime/ffmpeg/COPYING.GPLv3.txt
+
 # PyInstaller output (root only — keep desktop/build/ icons tracked for CI)
 /build/
 /dist/
@@ -24,7 +31,14 @@ __pycache__/
 *.pyc
 .venv/
 backend/.venv/
+# the compiled licence check, made by scripts/build_gate.py in release builds only
+backend/gate.*.pyd
+backend/gate.*.so
+backend/gate.py.src
 
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+
+# dev data that can land beside the code (the app keeps the real ones in its data folder)
+study-cache/

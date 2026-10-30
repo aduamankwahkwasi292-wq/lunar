@@ -1,0 +1,107 @@
+"""Word problems with known answers (SI) for the engine's self-test. 'Wrong' must stay at zero: abstaining is fine,
+a confident wrong answer is not."""
+
+PROBLEMS = [
+    # mechanics
+    ("A car travels 150 m in 12 s. Calculate its average speed.", 12.5),
+    ("A car accelerates from rest to 20 m/s in 5 s. Find its acceleration.", 4.0),
+    ("A car moving at 10 m/s accelerates at 2 m/s² for 5 s. What is its final velocity?", 20.0),
+    ("A ball is dropped from a height of 20 m. How long does it take to reach the ground? (Take g = 10 m/s²)", 2.0),
+    ("A stone is thrown vertically upwards with a speed of 15 m/s. Calculate the maximum height reached. Take g = 10 m/s^2.", 11.25),
+    ("Calculate the force needed to accelerate a 1200 kg car at 2.5 m/s².", 3000.0),
+    ("What is the weight of a 65 kg student?", 65 * 9.81),
+    ("Find the kinetic energy of a 0.5 kg ball moving at 12 m/s.", 36.0),
+    ("A 2 kg book is lifted through a height of 1.5 m. Calculate the gain in potential energy. (g = 9.8 m/s²)", 29.4),
+    ("A force of 50 N moves a box through 8 m. Calculate the work done.", 400.0),
+    ("A motor does 3600 J of work in 1.5 minutes. What is its power?", 40.0),
+    ("A crane lifts a 500 kg load through a height of 12 m in 20 s. Calculate the power of the crane. Take g = 10 m/s².", 3000.0),
+    ("A block of mass 4 kg has a volume of 0.002 m³. Find its density.", 2000.0),
+    ("A force of 600 N acts on an area of 0.25 m². Calculate the pressure.", 2400.0),
+    ("Calculate the pressure at a depth of 15 m in water. (g = 9.8 m/s²)", 147000.0),
+    ("A spring of spring constant 200 N/m is stretched by 0.05 m. Calculate the force.", 10.0),
+    ("A 0.2 kg mass moves in a circle of radius 0.5 m at 4 m/s. Calculate the centripetal force.", 6.4),
+    ("A simple pendulum has a length of 0.8 m. Calculate its period. (g = 9.81 m/s^2)", 1.79434),
+    ("A 1500 kg car is moving at 20 m/s. Calculate its momentum.", 30000.0),
+    ("A machine has a velocity ratio of 5 and a mechanical advantage of 4. Calculate its efficiency.", 0.8),
+    # waves and optics
+    ("A wave has a frequency of 50 Hz and a wavelength of 6.8 m. Calculate its speed.", 340.0),
+    ("Radio waves of frequency 100 MHz travel at 3 × 10^8 m/s. Find the wavelength.", 3.0),
+    ("Calculate the wavelength of light of frequency 6 × 10^14 Hz.", 2.998e8 / 6e14),
+    ("The refractive index of glass is 1.5. Calculate the critical angle.", 0.729728),
+    ("An object is placed 30 cm from a converging lens of focal length 10 cm. Find the image distance.", 0.15),
+    ("A lens has a focal length of 25 cm. Calculate its power.", 4.0),
+    # electricity
+    ("A current of 0.5 A flows through a 12 Ω resistor. Calculate the potential difference across it.", 6.0),
+    ("A 12 V battery drives a current of 250 mA through a lamp. Calculate the resistance of the lamp.", 48.0),
+    ("A kettle rated 2 kW is used for 3 minutes. How much energy does it use?", 360000.0),
+    ("Calculate the current drawn by a 60 W bulb connected to a 240 V supply.", 0.25),
+    ("A charge of 30 C flows through a wire in 2 minutes. Calculate the current.", 0.25),
+    ("A 2 kW heater is used for 5 hours. If electricity costs GH₵ 1.50 per kWh, find the cost.", 15.0),
+    ("Two resistors of 4 Ω and 6 Ω are connected in parallel. Calculate the combined resistance.", 2.4),
+    ("A capacitor of 470 µF is charged to 12 V. Calculate the charge stored.", 5.64e-3),
+    ("Calculate the energy stored in a 100 µF capacitor charged to 50 V.", 0.125),
+    ("A copper wire of length 2 m and cross-sectional area 1 × 10^-6 m² has resistivity 1.7 × 10^-8 Ω m. "
+     "Calculate its resistance.", 0.034),
+    # ac and machines
+    ("Calculate the inductive reactance of a 0.2 H inductor at 50 Hz.", 62.8319),
+    ("Find the capacitive reactance of a 10 µF capacitor at 50 Hz.", 318.31),
+    ("A 4-pole induction motor is supplied from a 50 Hz supply. Calculate the synchronous speed.", 25.0),
+    ("A 6-pole, 50 Hz induction motor runs at 960 rpm. Calculate the slip.", 0.04),
+    ("A coil of 500 turns carries a current of 2 A. Calculate the mmf.", 1000.0),
+    ("A magnetic flux density of 0.8 T acts over an area of 0.05 m². Calculate the flux.", 0.04),
+    ("A transformer has 200 primary turns and 1000 secondary turns. If the primary voltage is 240 V, "
+     "calculate the secondary voltage.", 1200.0),
+    ("A material has relative permeability 1000 and flux density 0.3 T. Calculate the magnetic field strength H.", 238.732),
+    ("If mechanical output energy changes at a constant rate of 0.12 J over 0.03 m, use fx = dWmech.out/dx to find the force.", 4.0),
+    ("A coil of 50 turns and area 0.002 m² carries a current of 0.3 A in a magnetic field of 1.2 T. "
+     "Calculate the torque on the coil.", 0.036),
+    # heat
+    ("Calculate the heat needed to raise the temperature of 2 kg of water from 20 °C to 80 °C.", 504000.0),
+    ("How much heat is required to melt 0.5 kg of ice at 0 °C?", 167000.0),
+    ("A gas occupies 3 L at a pressure of 2 atm. What is its new volume when the pressure is increased to 6 atm "
+     "at constant temperature?", 0.001),
+    ("A gas at 27 °C occupies 500 cm³. Find its new volume at 127 °C at constant pressure.", 500e-6 * 400 / 300),
+    ("Calculate the number of moles of an ideal gas at a pressure of 100 kPa, volume 0.024 m³ and temperature 300 K.",
+     100000 * 0.024 / (8.314 * 300)),
+    # modern physics
+    ("Calculate the energy of a photon of frequency 5 × 10^14 Hz.", 6.626e-34 * 5e14),
+    ("A radioactive sample of mass 80 g has a half-life of 5 days. What mass remains after 15 days?", 0.01),
+    # chemistry
+    ("Calculate the number of moles in 22 g of carbon dioxide.", 0.5),
+    ("How many moles are in 49 g of H2SO4?", 0.5),
+    ("Find the concentration of a solution containing 0.2 mol of NaCl in 500 cm³ of solution.", 400.0),
+    ("Calculate the pH of a solution with hydrogen ion concentration 0.001 mol/dm³.", 3.0),
+    ("How many molecules are in 2 moles of water?", 2 * 6.022e23),
+    ("Calculate the mass of 0.25 mol of calcium carbonate.", 0.025),
+    # biology
+    ("A cell measures 25 mm in a drawing. If the magnification is ×500, calculate the actual size of the cell.", 5e-5),
+    ("Calculate the BMI of a person of mass 70 kg and height 1.75 m.", 70 / 1.75 ** 2),
+    ("In a capture-recapture study, 40 snails were captured and marked. In the second sample of 50 snails, "
+     "10 were already marked. Estimate the population.", 200.0),
+    ("A person's heart rate is 70 beats per minute and the stroke volume is 75 cm³. Calculate the cardiac output.",
+     70 / 60 * 75e-6),
+    # maths
+    ("Find the area of a circle of radius 7 cm.", 3.14159265 * 49e-4),
+    ("A rectangle is 12 m long and 5 m wide. Find its area.", 60.0),
+    ("Find the volume of a cylinder of radius 3 cm and height 10 cm.", 3.14159265 * 9 * 10 * 1e-6),
+    ("A right-angled triangle has sides 6 cm and 8 cm. Find the hypotenuse.", 0.1),
+    ("Find the sum of the interior angles of a polygon with 8 sides.", 6 * 3.14159265),
+    ("Find the 10th term of an arithmetic progression with first term 3 and common difference 4.", 39.0),
+    ("Find the simple interest on GH₵ 2000 at 5% per annum for 3 years.", 300.0),
+    ("GH₵ 5000 is invested at 10% compound interest per annum for 2 years. Find the amount.", 6050.0),
+    # only the OpenStax formulas cover these
+    ("Calculate the escape velocity from a planet of mass 6 × 10^24 kg and radius 6.4 × 10^6 m.",
+     (2 * 6.674e-11 * 6e24 / 6.4e6) ** 0.5),
+    ("Calculate the rms speed of nitrogen molecules of molar mass 0.028 kg/mol at a temperature of 300 K.",
+     (3 * 8.314 * 300 / 0.028) ** 0.5),
+    ("A solenoid has 200 turns, a length of 0.1 m and a cross-sectional area of 0.0004 m². Calculate its inductance.",
+     4e-7 * 3.14159265 * 200 ** 2 * 4e-4 / 0.1),
+    ("Find the magnetic field 0.05 m from a long straight wire carrying a current of 10 A.", 4e-5),
+    ("What is the focal length of a concave mirror whose radius of curvature is 40 cm?", 0.2),
+    ("Calculate the speed of sound in steel of Young's modulus 2 × 10^11 Pa and density 7800 kg/m³.", (2e11 / 7800) ** 0.5),
+    ("A satellite orbits the Earth (mass 6 × 10^24 kg) at a radius of 7 × 10^6 m. Calculate its orbital period.",
+     2 * 3.14159265 * (7e6 ** 3 / (6.674e-11 * 6e24)) ** 0.5),
+    # computing
+    ("How long will it take to download a 100 MB file at 8 Mbps?", 100 * 8 * 1024 ** 2 / 8e6),
+    ("Calculate the file size of an image 800 by 600 pixels with a colour depth of 24 bits.", 800 * 600 * 24),
+]

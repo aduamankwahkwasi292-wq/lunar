@@ -1,4 +1,45 @@
-# Releasing Lunar (so your friends can download it)
+# Releasing MrSOLIS
+
+## MrSOLIS 3 (from 3.0.0, 2026-10-30)
+
+- **Where:** github.com/aduamankwahkwasi292-wq/lunar (public again since 2026-10-30). Installed copies read its
+  releases for updates (`publish` in desktop/package.json), and the website's Download buttons point at its latest
+  release (`Downloads\lunar\mrsolis-website`, served from the lunar-app repo's GitHub Pages).
+- **Windows only.** The installer no longer carries Lunar 1's built-in model and search model (1.2 GB): students pick
+  Speedy or Smarts on first start. Without them, "Find anything" matches words and slide numbers, not meaning.
+- **GitHub Actions can't run** while the account is locked over billing (every job stops with "your account is locked
+  due to a billing issue", even on public repos). Until that's cleared, build on the laptop:
+
+### Building on this laptop
+
+This folder is a git checkout of `lunar` since 2026-10-30 (`git status`, `git push`). Build from a clean copy so the
+licence-check step (which moves gate.py aside) never touches the working folder:
+
+```bash
+# once: pip install pyinstaller "rapidocr-onnxruntime>=1.2.3"   (Cython and VS Build Tools 2019 are installed)
+B=/c/Users/aduam/Downloads/lunar/build/src
+git clone -q . "$B"                                    # the committed code only
+cp -r models/voice "$B/models/"; cp -r runtime/llama.cpp runtime/ffmpeg "$B/runtime/"
+cmd //c mklink /J "$(cygpath -w "$B/desktop/node_modules")" "$(cygpath -w "$PWD/desktop/node_modules")"
+cd "$B" && python scripts/build_gate.py --release && pyinstaller lunar-backend.spec --noconfirm
+cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win --publish never
+```
+
+Then check `desktop/release/` (the installer, its `.blockmap`, `latest.yml`) and publish them:
+
+```bash
+gh release create v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft --title "MrSOLIS 3.0.1" --notes "…" \
+  release/Lunar-Setup-3.0.1.exe release/Lunar-Setup-3.0.1.exe.blockmap release/latest.yml
+gh release edit v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft=false    # once all three are uploaded
+```
+
+Bump `version` in desktop/package.json first (`npm version 3.0.1 --no-git-tag-version`), commit and push, and tag
+the release at that commit. Smart App Control (on, on this laptop) blocks the freshly built engine, so the installed
+build can't be run here: check the package contents instead, and test the code itself with the dev app.
+
+---
+
+## Lunar 1 (the original guide)
 
 The repo is already committed on the `main` branch. Pushing it to GitHub and
 publishing a Release triggers the CI matrix, which builds the **Windows, macOS,
@@ -74,8 +115,10 @@ That's it — no Python, no Node, no Ollama, no model downloads. ~1.5–2 GB ins
 
 ## Shipping an update (so users auto-update)
 
-Lunar checks your GitHub Releases on launch. When you publish a **newer** version,
-installed apps download it and show *"Lunar X is ready — Restart now."*
+The app checks your GitHub Releases on launch. When you publish a **newer** version, installed apps **ask first**:
+*"MrSOLIS X is available. Downloading it uses up to N MB of internet data."* with Download / Not now / Skip this
+version (`desktop/updates.js`, since 2026-10-26: students pay for their data). After the download: *"Restart now"*,
+or it installs the next time they close the app. Users of builds older than this one still download by themselves.
 
 1. Make your changes.
 2. Bump the version in `desktop/package.json` (`"version": "1.0.1"`), commit, push.
@@ -90,6 +133,44 @@ installed apps download it and show *"Lunar X is ready — Restart now."*
 > The tag version and `desktop/package.json` version must match (CI also syncs them
 > for you). Auto-update only works for users already on a build that includes the
 > updater — i.e. v1.0.0 onward.
+
+## Licences (MrSOLIS 3 onward, 2026-10-26)
+
+The installed app asks for a licence code (`MRS-XXXX-XXXX-XXXX`) before it opens, and checks it once a day when
+online. The server and your admin tool are in `Downloads\lunar\licence-server` (its README has every step).
+
+Before the **first** release with licences:
+
+1. ~~Put the licence server online and set `SERVER` in `desktop/licence.js`~~ **Done 2026-10-27:**
+   https://mrsolis-licence.jonsonwhocancreate.workers.dev (Cloudflare). The release workflow would fail if
+   `SERVER` ever went back to the placeholder `licence.mrsolis.example`.
+2. **People already on Lunar 1 get the update and then the activation screen.** Make their codes first, e.g. one
+   shared tester code: `node admin.mjs new --kind tester --max 50 --note "Lunar testers"`, and send it to them
+   with the update.
+3. Back up `licence-server/keys/` somewhere that isn't the laptop.
+4. **Selling inside MrSOLIS (US$1, paid as GHS 12 since 2026-10-29; GHS 35 before):** on since 2026-10-28, by **Mobile Money to 020 483 2725** (Telecel Cash · Janet
+   Nartey). Each sale waits until you confirm it in MrSOLIS Licences → Payments (licence-server/README.md).
+   Card payments online (Flutterwave or Paystack) aren't available yet. Flutterwave waitlisted us, and Paystack never
+   sent its code. The code is ready: `licence-server/Set payment key.cmd` switches it on once a provider accepts you.
+5. **Hardening (2026-10-29; CLAUDE.md "Hardening"):**
+   - Deploy the licence server once more (`npx wrangler deploy` in licence-server) if it isn't live yet: it carries
+     the request limits (the race fix went live on 2026-10-30).
+   - The workflow's "Compile the licence check (Cython)" step must pass (scripts/build_gate.py --release).
+   - In the build log, the packaging step (desktop/build/harden.js) prints `scrambled  main.js, licence.js,
+     preload.js, updates.js; engine fingerprinted: backend/lunar-backend.exe,
+     backend/_internal/backend/gate.cp311-win_amd64.pyd`. An unsigned build then prints `Lunar.exe left as Electron's
+     own`. A signed build (Store or certificate) prints `app.asar integrity written into Lunar.exe` and
+     `fuses set  Lunar.exe: 00001101`. If the step fails instead, check before releasing: Electron's fuse layout or
+     PyInstaller's folder layout may have changed.
+   - **Smart App Control:** Windows 11 PCs with it on block unsigned apps. They blocked the installed Lunar 1's
+     engine on the owner's laptop (2026-10-06), so the unsigned installer won't run there. The free fix is the
+     Microsoft Store (CLAUDE.md "Hardening").
+   - Install the new build once and open it: it must reach the activation screen. A tampered app.asar or engine
+     makes it refuse to start; that is intended.
+   - The installed backend now refuses to start without the licence, and only MrSOLIS's own windows can reach it.
+
+Selling: for every buyer, `node admin.mjs new --note "<name, payment ref>"` and send them the code. Refunds:
+`admin.mjs refund` (the README). Licences can't be moved to another computer (for now).
 
 ## Notes
 

@@ -1,542 +1,226 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lunar — AI Tutor</title>
-    <link rel="stylesheet" href="static/style.css?v=20260622b">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700&display=swap">
+    <title>MrSOLIS 3 — Study Oriented Local Intelligence System</title>
     <link rel="shortcut icon" href="static/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="static/mrsolis.css">
 </head>
-
 <body>
+    <!-- Icons: Feather (MIT), drawn inline so the app needs nothing from the network. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+            <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+            <symbol id="i-notes" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></symbol>
+            <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+            <symbol id="i-quiz" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+            <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+            <symbol id="i-focus" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="6"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></symbol>
+            <symbol id="i-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+            <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.74V17h8v-2.26A7 7 0 0 0 12 2z"/></symbol>
+            <symbol id="i-up" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></symbol>
+            <symbol id="i-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+            <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22.5" y2="12"/></symbol>
+            <symbol id="i-min" viewBox="0 0 24 24"><line x1="6" y1="12" x2="18" y2="12"/></symbol>
+            <symbol id="i-max" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11"/></symbol>
+            <symbol id="i-close" viewBox="0 0 24 24"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></symbol>
+            <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-reset" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+            <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+            <symbol id="i-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+            <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5"/><rect x="7.5" y="5.5" width="9" height="4" rx="1"/><line x1="8" y1="13" x2="9" y2="13"/><line x1="11.5" y1="13" x2="12.5" y2="13"/><line x1="15" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="9" y2="17"/><line x1="11.5" y1="17" x2="12.5" y2="17"/><line x1="15" y1="17" x2="16" y2="17"/></symbol>
+            <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 4H6l6 8-6 8h12"/></symbol>
+            <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15"/><line x1="9" y1="2" x2="15" y2="2"/></symbol>
+            <symbol id="i-live" viewBox="0 0 24 24"><line x1="3" y1="10" x2="3" y2="14"/><line x1="7.5" y1="6" x2="7.5" y2="18"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16.5" y1="7" x2="16.5" y2="17"/><line x1="21" y1="10" x2="21" y2="14"/></symbol>
+            <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><polyline points="21 15 16 10 5 21"/></symbol>
+            <symbol id="i-film" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="2.5" y1="9.5" x2="7" y2="9.5"/><line x1="2.5" y1="14.5" x2="7" y2="14.5"/><line x1="17" y1="9.5" x2="21.5" y2="9.5"/><line x1="17" y1="14.5" x2="21.5" y2="14.5"/></symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+            <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+            <symbol id="i-speaker" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+        </defs>
+    </svg>
 
-    <!-- Nebula Background -->
+    <canvas id="scene" aria-hidden="true"></canvas>
 
-    <!-- ── Tooltip (single shared instance) ──────────── -->
-    <div class="sidebar-tooltip" id="sidebar-tooltip"></div>
-
-    <!-- ── Collapse Toggle Tab ────────────────────────── -->
-    <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="15 18 9 12 15 6" />
-        </svg>
-    </button>
-
-    <!-- ── Floating Sidebar ───────────────────────────── -->
-    <header class="topbar" id="topbar">
-
-        <!-- Brand logo -->
-
-        <div class="topbar-divider"></div>
-
-        <!-- Nav links -->
-        <nav class="topbar-nav">
-            <a class="topbar-link active" data-tip="Home" href="/">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
+    <div id="app">
+        <!-- ═══ TOP BAR ═══ -->
+        <header id="topbar">
+            <div class="brand">
+                <svg class="logo" viewBox="0 0 44 36" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="logo-metal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#bfc2c6"/><stop offset="1" stop-color="#7c8086"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M4 32V6l14 14L32 6v26" fill="none" stroke="url(#logo-metal)" stroke-width="5" stroke-linejoin="miter"/>
+                    <circle cx="39" cy="29.5" r="3" fill="#fff"/>
                 </svg>
-            </a>
-
-        </nav>
-
-        <div class="topbar-divider"></div>
-
-        <!-- Action buttons -->
-        <div class="topbar-actions">
-
-            <!-- Theme picker -->
-            <button class="topbar-icon-btn" id="theme-btn" data-tip="Change Theme">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="5" />
-                    <line x1="12" y1="1" x2="12" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="23" />
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                    <line x1="1" y1="12" x2="3" y2="12" />
-                    <line x1="21" y1="12" x2="23" y2="12" />
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-            </button>
-
-            <!-- How to use -->
-            <button class="topbar-icon-btn" id="howto-btn" data-tip="How to Use">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-            </button>
-
-            <!-- Notifications -->
-            <button class="topbar-icon-btn" id="notif-btn" data-tip="Notifications">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-            </button>
-
-            <div class="topbar-divider"></div>
-
-            <!-- Avatar -->
-            <div class="topbar-avatar" id="avatar-btn" data-tip="Change Avatar">LU</div>
-        </div>
-    </header>
-
-    <!-- ── Theme Panel ─────────────────────────────────── -->
-    <div class="sidebar-panel" id="theme-panel">
-        <button class="panel-close" id="close-theme-panel">✕</button>
-        <h4>Accent Color</h4>
-        <div class="theme-grid">
-            <div class="theme-swatch active" data-theme="theme-purple">
-                <div class="swatch-dot" style="background:#7c5cfc;"></div>
-                <span>Purple</span>
-            </div>
-            <div class="theme-swatch" data-theme="theme-emerald">
-                <div class="swatch-dot" style="background:#10b981;"></div>
-                <span>Emerald</span>
-            </div>
-            <div class="theme-swatch" data-theme="theme-rose">
-                <div class="swatch-dot" style="background:#f43f5e;"></div>
-                <span>Rose</span>
-            </div>
-            <div class="theme-swatch" data-theme="theme-amber">
-                <div class="swatch-dot" style="background:#f59e0b;"></div>
-                <span>Amber</span>
-            </div>
-            <div class="theme-swatch" data-theme="theme-cyan">
-                <div class="swatch-dot" style="background:#06b6d4;"></div>
-                <span>Cyan</span>
-            </div>
-            <div class="theme-swatch" data-theme="theme-light">
-                <div class="swatch-dot" style="background:#f0f0f0; border-color: #ccc;"></div>
-                <span>Light</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- ── Avatar Panel ────────────────────────────────── -->
-    <div class="sidebar-panel" id="avatar-panel">
-        <button class="panel-close" id="close-avatar-panel">✕</button>
-        <h4>Choose Avatar</h4>
-        <div class="avatar-grid">
-            <div class="avatar-opt active" data-avatar="emoji" data-val="🌙">🌙</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="⚡">⚡</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="🔮">🔮</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="🦊">🦊</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="🐺">🐺</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="🦋">🦋</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="🌊">🌊</div>
-            <div class="avatar-opt" data-avatar="emoji" data-val="🎯">🎯</div>
-        </div>
-        <h4 style="margin-top:12px;">Initials</h4>
-        <div class="avatar-initials-row">
-            <div class="avatar-init-opt" data-avatar="init" data-val="LU" style="background:var(--primary);">LU</div>
-            <div class="avatar-init-opt" data-avatar="init" data-val="ME" style="background:#10b981;">ME</div>
-            <div class="avatar-init-opt" data-avatar="init" data-val="AI" style="background:#f43f5e;">AI</div>
-            <div class="avatar-init-opt" data-avatar="init" data-val="★" style="background:#f59e0b;">★</div>
-            <div class="avatar-init-opt" data-avatar="init" data-val="∞" style="background:#06b6d4;">∞</div>
-            <div class="avatar-init-opt" data-avatar="init" data-val="?" style="background:#7c5cfc;">?</div>
-        </div>
-    </div>
-
-    <!-- ── How to Use Panel ────────────────────────────── -->
-    <div class="sidebar-panel" id="howto-panel">
-        <button class="panel-close" id="close-howto-panel">✕</button>
-        <h4>How to Use Lunar</h4>
-        <div class="howto-steps">
-            <div class="howto-step">
-                <div class="howto-num">1</div>
-                <div class="howto-text"><strong>Upload your slides</strong>Drop any PDF, PPTX, DOCX, or image — even
-                    photos of slides. Lunar reads every slide (OCR included).</div>
-            </div>
-            <div class="howto-step">
-                <div class="howto-num">2</div>
-                <div class="howto-text"><strong>Step into the classroom</strong>Your real slide opens on the board and
-                    Lunar teaches it one at a time — clear explanations and worked examples, only from your content.</div>
-            </div>
-            <div class="howto-step">
-                <div class="howto-num">3</div>
-                <div class="howto-text"><strong>Highlight → Explain or Solve</strong>Select any part of the slide or the
-                    lesson, then tap <em>Explain</em> for a closer look, or <em>Solve</em> to work a question step by
-                    step. You can also just ask Lunar anything in the box.</div>
-            </div>
-            <div class="howto-step">
-                <div class="howto-num">4</div>
-                <div class="howto-text"><strong>Find anything</strong>Type a slide number or any keyword in the search
-                    box to jump straight to that slide.</div>
-            </div>
-            <div class="howto-step">
-                <div class="howto-num">5</div>
-                <div class="howto-text"><strong>At your pace, on your device</strong>Hit <em>Stop</em> to cut a reply
-                    short, use Previous / Next to move. Everything runs locally — no keys, no internet, nothing leaves
-                    your machine.</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ── Main ────────────────────────────────────────── -->
-    <main class="main" id="main-content">
-        <div class="app-container">
-
-            <!-- Hero -->
-            <div class="hero">
-                <div class="hero-eyebrow">
-                    <span class="hero-eyebrow-dot"></span>
+                <div class="brand-text">
+                    <div class="brand-name">MrSOLIS <span>3</span></div>
+                    <div class="brand-sub">Study Oriented Local Intelligence System</div>
                 </div>
-                <p class="hero-sub">Upload your slides to start class. Larger files take a little longer to read. Lunar
-                    can make mistakes — double-check anything important(especially math).</p>
             </div>
 
-            <!-- Step 1: Upload -->
-            <section class="card" id="step-upload">
-                <div class="card-label">
-                    <span class="card-label-num">1</span>
-                    Upload your slides
+            <div class="top-right">
+                <div class="search">
+                    <svg class="ico"><use href="#i-search"/></svg>
+                    <input type="text" id="search-input" placeholder="Find anything..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="icon-btn small" id="hs-add" title="Upload slides"><svg class="ico"><use href="#i-plus"/></svg></button>
+                    <div id="search-results"></div>
                 </div>
-                <div class="upload-zone" id="upload-zone">
-                    <div class="upload-icon-wrap">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="16 16 12 12 8 16" />
-                            <line x1="12" y1="12" x2="12" y2="21" />
-                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-                        </svg>
-                    </div>
-                    <p class="upload-text">Drop your slides here</p>
-                    <p class="upload-hint">PDF, PowerPoint, Word, or images — even photos of slides. Lunar reads every
-                        slide and teaches them to you, one at a time.</p>
-                    <div class="upload-formats-row">
-                        <span class="format-pill">PDF</span>
-                        <span class="format-pill">DOCX</span>
-                        <span class="format-pill">TXT</span>
-                        <span class="format-pill">PPTX</span>
-                        <span class="format-pill">XLSX</span>
-                        <span class="format-pill">CSV</span>
-                        <span class="format-pill">Images (OCR)</span>
-                    </div>
-                    <input type="file" id="file-input" hidden>
+                <button type="button" class="icon-btn" id="hs-focus" title="Focus mode (just the board)"><svg class="ico"><use href="#i-focus"/></svg></button>
+                <button type="button" class="icon-btn" id="hs-gear" data-page="settings" title="Settings"><svg class="ico"><use href="#i-gear"/></svg></button>
+                <div class="win-ctrls">
+                    <button type="button" id="win-min" title="Minimize"><svg class="ico"><use href="#i-min"/></svg></button>
+                    <button type="button" id="win-max" title="Maximize"><svg class="ico"><use href="#i-max"/></svg></button>
+                    <button type="button" id="win-close" class="close" title="Close"><svg class="ico"><use href="#i-close"/></svg></button>
                 </div>
-                <div class="file-info" id="file-info" style="display:none;">
-                    <span class="file-name" id="file-name"></span>
-                    <span class="file-size" id="file-size"></span>
-                    <button class="btn-icon" id="remove-file" title="Remove file">&times;</button>
+            </div>
+        </header>
+
+        <!-- ═══ SIDEBAR ═══ -->
+        <aside id="sidebar">
+            <nav class="nav">
+                <button type="button" class="nav-item active" id="hs-home" data-page="home"><svg class="ico"><use href="#i-home"/></svg>Home</button>
+                <button type="button" class="nav-item" id="hs-subjects" data-page="subjects"><svg class="ico"><use href="#i-book"/></svg>Subjects</button>
+                <button type="button" class="nav-item" id="hs-notes" data-page="notes"><svg class="ico"><use href="#i-notes"/></svg>Notes</button>
+                <button type="button" class="nav-item" id="hs-uploads" data-page="uploads"><svg class="ico"><use href="#i-upload"/></svg>Uploads</button>
+                <button type="button" class="nav-item" id="hs-quizzes" data-page="quizzes"><svg class="ico"><use href="#i-quiz"/></svg>Quizzes</button>
+                <button type="button" class="nav-item" id="hs-history" data-page="history"><svg class="ico"><use href="#i-clock"/></svg>History</button>
+                <button type="button" class="nav-item" id="hs-settings" data-page="settings"><svg class="ico"><use href="#i-gear"/></svg>Settings</button>
+                <button type="button" class="nav-item" id="hs-help" data-page="help"><svg class="ico"><use href="#i-help"/></svg>How to use</button>
+            </nav>
+
+            <section class="card progress-card">
+                <div class="card-title">Progress</div>
+                <div class="ring">
+                    <svg viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="ring-track" cx="60" cy="60" r="52"/>
+                        <circle class="ring-arc" id="pg-arc" cx="60" cy="60" r="52"/>
+                    </svg>
+                    <div class="ring-text"><b id="pg-count">0/0</b><span>Slides</span></div>
                 </div>
-                <div class="text-preview" id="text-preview" style="display:none;">
-                    <h4>Extracted Text Preview:</h4>
-                    <pre id="preview-content"></pre>
-                </div>
+                <div class="pg-pct" id="pg-pct">0% Complete</div>
+                <div class="bar"><i id="pg-bar-fill"></i></div>
             </section>
 
-            <!-- On-device AI status + resume classroom -->
-            <section class="card" id="step-config">
-                <div class="card-label">
-                    <span class="card-label-num">2</span>
-                    On-device AI
+            <button type="button" class="card tools" id="hs-tools" data-page="tools"><svg class="ico"><use href="#i-grid"/></svg>Tools<span id="timer-badge" hidden></span></button>
+
+            <section class="assistant">
+                <svg class="avatar" viewBox="0 0 64 64" aria-hidden="true">
+                    <circle cx="32" cy="32" r="31" fill="#0b0b0c" stroke="rgba(255,255,255,.35)"/>
+                    <path d="M14 33a18 18 0 0 1 36 0" fill="none" stroke="#9a9da2" stroke-width="2.5"/>
+                    <rect x="10.5" y="29" width="6" height="12" rx="3" fill="#d9dbde"/>
+                    <rect x="47.5" y="29" width="6" height="12" rx="3" fill="#d9dbde"/>
+                    <rect x="18" y="20" width="28" height="24" rx="11" fill="#1d1e20" stroke="#e8e9eb" stroke-width="1.6"/>
+                    <rect x="22" y="26" width="20" height="11" rx="5.5" fill="#000"/>
+                    <circle cx="27.5" cy="31.5" r="2.4" fill="#fff"/><circle cx="36.5" cy="31.5" r="2.4" fill="#fff"/>
+                    <path d="M24 52l8 5 8-5" fill="none" stroke="#e8e9eb" stroke-width="2"/>
+                </svg>
+                <div>
+                    <div class="as-name">MrSOLIS <span>3</span></div>
+                    <div class="as-sub">Always here to help</div>
+                    <div class="as-status"><i id="status-dot" class="starting"></i><span id="status-text">Starting…</span></div>
                 </div>
-                <div id="ai-status-chip" class="ai-status-chip">
-                    <span class="status-dot"></span> Checking on-device AI…
+            </section>
+        </aside>
+
+        <!-- ═══ STAGE ═══ -->
+        <main id="stage">
+          <div id="view-class" class="view">
+            <div class="lesson-head">
+                <div id="slide-label">No lesson open</div>
+                <div class="bar head-bar"><i id="slide-bar-fill"></i></div>
+            </div>
+
+            <!-- The board: a steel frame (SVG, drawn to size by mrsolis-scene.js) around a silver writing surface -->
+            <section id="board">
+                <svg id="board-frame" aria-hidden="true"></svg>
+                <div id="board-surface">
+                    <div id="cr-board">
+                        <div id="board-idle" aria-hidden="true">
+                            <svg viewBox="0 0 44 36"><path d="M4 32V6l14 14L32 6v26" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="39" cy="29.5" r="3" fill="currentColor"/></svg>
+                            <div>MrSOLIS 3</div>
+                            <p>Drop your slides or notes here to start learning<br>— or ask me anything below</p>
+                            <button type="button" class="idle-help" data-page="help">New here? See how to use MrSOLIS</button>
+                        </div>
+                        <div id="board-content" hidden></div>
+                    </div>
                 </div>
-                <small class="help-text" style="display:block;margin:-4px 0 8px;">
-                    Lunar runs entirely on your machine — local model, no API keys, no limits, nothing
-                    leaves your device. Upload your slides and step into the classroom.
-                </small>
-                <button class="btn btn-generate" id="return-classroom-btn" style="display:none;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    <span class="btn-text">Return to Classroom</span>
-                </button>
+                <div id="ladder">
+                    <button type="button" id="hs-slide-prev" title="Previous slide (←)"><svg class="ico"><use href="#i-up"/></svg></button>
+                    <div id="ladder-ticks"></div>
+                    <button type="button" id="hs-slide-next" title="Next slide (→)"><svg class="ico"><use href="#i-down"/></svg></button>
+                    <button type="button" id="hs-target" title="Clear the board — take the slides and the chat off it"><svg class="ico"><use href="#i-target"/></svg></button>
+                </div>
+                <!-- the calculator, brought onto the board with "/calculator" (mrsolis-calc.js) -->
+                <div id="board-calc" hidden></div>
             </section>
 
-            <!-- Feature Highlights -->
-            <div class="features-row">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                    </div>
-                    <div class="feature-title">Taught slide by slide</div>
-                    <div class="feature-desc">Your real slide opens on the board and Lunar explains it like a professor —
-                        grounded only in your slides, nothing invented.</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
-                        </svg>
-                    </div>
-                    <div class="feature-title">Highlight → Explain or Solve</div>
-                    <div class="feature-desc">Select any part of a slide or the lesson; Lunar breaks it down — or solves
-                        it step by step. Search to jump to any slide.</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        </svg>
-                    </div>
-                    <div class="feature-title">Stays on your device</div>
-                    <div class="feature-desc">The model runs locally — no keys, no internet. Nothing is uploaded; nothing
-                        leaves your machine.</div>
+            <p class="hint">
+                <svg class="ico"><use href="#i-bulb"/></svg>
+                <span id="hint-text">Highlight any part of the slide or this lesson, then tap <b>Explain</b> for a closer look — or <b>Solve</b> if it's a question.</span>
+                <!-- let a brain that sees look at slides with pictures while it teaches (mrsolis-brain.js) -->
+                <button type="button" id="look-chip" class="look-chip" hidden><svg class="ico"><use href="#i-eye"/></svg><span>Look at slides</span><i class="mini-switch"></i></button>
+            </p>
+
+            <div class="chatbar" id="chatbar">
+                <div id="cmd-menu" hidden></div>
+                <!-- a picture attached for a brain that sees (mrsolis-brain.js) -->
+                <div id="pic-chip" hidden><img alt="The picture you attached"><span>Picture attached</span><button type="button" title="Remove the picture"><svg class="ico"><use href="#i-close"/></svg></button></div>
+                <!-- a video (or recorded lecture) attached: MrSOLIS watches and listens (mrsolis-video.js) -->
+                <div id="vid-chip" hidden><span class="vid-thumb"><img alt="" hidden><svg class="ico"><use href="#i-film"/></svg></span><span class="vid-text"><b class="vid-name"></b><small class="vid-state"></small><i class="vid-bar"><i></i></i></span><button type="button" title="Remove the video"><svg class="ico"><use href="#i-close"/></svg></button></div>
+                <input type="text" id="chat-input" placeholder="Ask MrSOLIS 3 anything about this lesson..." autocomplete="off" spellcheck="false">
+                <button type="button" class="icon-btn" id="chat-pic" title="Attach a picture or a video — a photo of your notes, a diagram, a question, or a lecture video to ask about" hidden><svg class="ico"><use href="#i-image"/></svg></button>
+                <!-- Make it exact: the question → a /CUSTOM-Mx command to check before sending (mrsolis-wire.js) -->
+                <button type="button" class="icon-btn" id="chat-exact" title="Make it exact — turn your question into a CUSTOM-Mx command you can check before sending"><svg class="ico"><use href="#i-sigma"/></svg></button>
+                <button type="button" class="icon-btn" id="chat-mic" title="Transcription — speak and your words are typed here"><svg class="ico"><use href="#i-mic"/></svg></button>
+                <button type="button" class="icon-btn" id="chat-live" title="Live — talk with MrSOLIS out loud"><svg class="ico"><use href="#i-live"/></svg></button>
+                <button type="button" id="chat-send" title="Send"><svg class="ico send"><use href="#i-send"/></svg><svg class="ico stop"><use href="#i-stop"/></svg></button>
+                <!-- Live voice mode (mrsolis-voice.js) -->
+                <div id="live-panel" hidden>
+                    <div class="live-bars" id="live-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="live-text"><b id="live-state">Listening…</b><span id="live-caption">Ask anything about this slide — or say “next slide”.</span></div>
+                    <button type="button" class="live-end" id="live-end">End live</button>
                 </div>
             </div>
-
-        </div>
-    </main>
-
-    <!-- ── Classroom ───────────────────────────────────── -->
-    <div id="classroom" class="classroom" style="display:none;">
-        <!-- full-screen futuristic classroom; the hologram board is wired below -->
-        <div class="cr-room-wrap">
-            <img class="cr-room" src="/static/U7.png" alt="" draggable="false">
-            <div class="cr-board" id="cr-board"></div>
-            <div class="cr-status" id="cr-status">Preparing the lesson…</div>
-        </div>
-
-        <div class="cr-topbar">
-            <div class="cr-brand">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-                <span>Lunar's Classroom</span>
-                <span class="cr-file" id="cr-filename"></span>
-            </div>
-            <div class="cr-progress">
-                <span class="cr-slide-label" id="cr-slide-label">Slide 1 of 1</span>
-                <div class="cr-dots" id="cr-dots"></div>
-            </div>
-            <div class="cr-actions">
-                <div class="cr-search">
-                    <svg class="cr-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="7" />
-                        <path d="M21 21l-4.3-4.3" />
-                    </svg>
-                    <input type="text" id="cr-search-input" placeholder="Find anything…" autocomplete="off">
-                    <div class="cr-search-results" id="cr-search-results"></div>
-                </div>
-                <button class="cr-pill cr-pill-ghost" id="cr-exit-btn" title="Leave classroom">Exit</button>
-            </div>
-        </div>
-
-        <div class="cr-dock">
-            <div class="cr-bubbles" id="cr-bubbles"></div>
-            <div class="cr-inputbar">
-                <input type="text" id="cr-input" placeholder="Type your answer, or ask Lunar anything…"
-                    autocomplete="off">
-                <button class="cr-icon-btn cr-send" id="cr-send-btn" title="Send">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="19" x2="12" y2="5" />
-                        <polyline points="5 12 12 5 19 12" />
-                    </svg>
-                </button>
-                <button class="cr-stop-btn" id="cr-stop-btn" title="Stop Lunar" style="display:none;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="6" y="6" width="12" height="12" rx="2" />
-                    </svg>
-                    Stop
-                </button>
-                <button class="cr-next-btn cr-prev-btn" id="cr-prev-btn" title="Previous slide">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                    Previous
-                </button>
-                <button class="cr-next-btn" id="cr-next-btn" title="Next slide">
-                    Next slide
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- floating Explain / Solve buttons for a highlighted portion -->
-        <div id="cr-sel-tools" class="cr-sel-tools" style="display:none;">
-            <button type="button" id="cr-explain-btn" class="cr-sel-btn">Explain</button>
-            <button type="button" id="cr-solve-btn" class="cr-sel-btn cr-sel-btn-solve">Solve</button>
-        </div>
+          </div>
+          <!-- Subjects, Notes, Uploads, Quizzes, History, Settings, Tools render here (mrsolis-pages.js) -->
+          <div id="view-page" class="view" hidden></div>
+        </main>
     </div>
 
-    <script>
-        // ── Sidebar system ────────────────────────────────────
-        (function () {
-            const topbar = document.getElementById('topbar');
-            const toggle = document.getElementById('sidebar-toggle');
-            const mainEl = document.getElementById('main-content');
-            const tooltip = document.getElementById('sidebar-tooltip');
+    <!-- ═══ FLOATING ═══ -->
+    <div id="cr-sel-tools" hidden>
+        <button type="button" id="cr-explain-btn" class="sel-btn">Explain</button>
+        <button type="button" id="cr-solve-btn" class="sel-btn sel-solve">Solve</button>
+        <button type="button" id="cr-note-btn" class="sel-btn sel-note" title="Save to Notes"><svg class="ico"><use href="#i-bookmark"/></svg></button>
+    </div>
+    <div id="drop-veil" hidden><div>Drop to start class</div></div>
+    <div id="mrsolis-toast" hidden></div>
+    <input type="file" id="pic-input" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,video/*,audio/*,.mkv,.mp4,.webm,.mov,.avi,.m4v,.3gp,.wmv,.flv,.mpg,.mpeg,.ts,.mp3,.m4a,.wav,.aac,.ogg,.opus,.flac,.wma,.amr">
+    <input type="file" id="file-input" hidden accept=".pdf,.pptx,.docx,.doc,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.webp">
 
-            let sidebarVisible = true;
-            let tooltipTimer = null;
-            let activePanel = null;
-
-            // ── Sticky on scroll (position:fixed already handles this) ──
-            // Nothing needed — fixed positioning is inherently sticky.
-
-            // ── Collapse / expand ─────────────────────────────
-            toggle.addEventListener('click', () => {
-                sidebarVisible = !sidebarVisible;
-                topbar.classList.toggle('hidden', !sidebarVisible);
-                toggle.classList.toggle('collapsed', !sidebarVisible);
-                mainEl.classList.toggle('expanded', !sidebarVisible);
-                closeAllPanels();
-            });
-
-            // ── Tooltips ──────────────────────────────────────
-            function showTooltip(el) {
-                const tip = el.dataset.tip;
-                if (!tip) return;
-                const rect = el.getBoundingClientRect();
-                tooltip.textContent = tip;
-                tooltip.style.top = (rect.top + rect.height / 2 - 12) + 'px';
-                tooltip.classList.add('visible');
-            }
-            function hideTooltip() {
-                tooltip.classList.remove('visible');
-            }
-
-            document.querySelectorAll('[data-tip]').forEach(el => {
-                el.addEventListener('mouseenter', () => {
-                    clearTimeout(tooltipTimer);
-                    tooltipTimer = setTimeout(() => showTooltip(el), 300);
-                });
-                el.addEventListener('mouseleave', () => {
-                    clearTimeout(tooltipTimer);
-                    hideTooltip();
-                });
-            });
-
-            // ── Panel management ──────────────────────────────
-            function openPanel(id) {
-                closeAllPanels();
-                const panel = document.getElementById(id);
-                if (panel) { panel.classList.add('open'); activePanel = id; }
-            }
-            function closeAllPanels() {
-                document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('open'));
-                activePanel = null;
-            }
-
-            // Close panels when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.sidebar-panel') &&
-                    !e.target.closest('#theme-btn') &&
-                    !e.target.closest('#howto-btn') &&
-                    !e.target.closest('#avatar-btn')) {
-                    closeAllPanels();
-                }
-            });
-
-            // ── Theme panel ───────────────────────────────────
-            document.getElementById('theme-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                activePanel === 'theme-panel' ? closeAllPanels() : openPanel('theme-panel');
-            });
-            document.getElementById('close-theme-panel').addEventListener('click', closeAllPanels);
-
-            const themes = ['theme-purple', 'theme-emerald', 'theme-rose', 'theme-amber', 'theme-cyan', 'theme-light'];
-            document.querySelectorAll('.theme-swatch').forEach(sw => {
-                sw.addEventListener('click', () => {
-                    const t = sw.dataset.theme;
-                    themes.forEach(th => document.body.classList.remove(th));
-                    document.body.classList.add(t);
-                    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
-                    sw.classList.add('active');
-                    try { localStorage.setItem('lunar-theme', t); } catch (e) { }
-                });
-            });
-            // Restore theme
-            try {
-                const saved = localStorage.getItem('lunar-theme');
-                if (saved) {
-                    themes.forEach(th => document.body.classList.remove(th));
-                    document.body.classList.add(saved);
-                    document.querySelectorAll('.theme-swatch').forEach(s => {
-                        s.classList.toggle('active', s.dataset.theme === saved);
-                    });
-                }
-            } catch (e) { }
-
-            // ── Avatar panel ──────────────────────────────────
-            document.getElementById('avatar-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                activePanel === 'avatar-panel' ? closeAllPanels() : openPanel('avatar-panel');
-            });
-            document.getElementById('close-avatar-panel').addEventListener('click', closeAllPanels);
-
-            const avatarDisplay = document.getElementById('avatar-btn');
-            const brandDisplay = document.getElementById('brand-btn');
-
-            function setAvatar(val, type) {
-                document.querySelectorAll('.avatar-opt, .avatar-init-opt').forEach(o => o.classList.remove('active'));
-                const opt = document.querySelector(`[data-val="${val}"]`);
-                if (opt) opt.classList.add('active');
-
-                if (type === 'emoji') {
-                    avatarDisplay.innerHTML = `<span style="font-size:1.1rem;">${val}</span>`;
-                    brandDisplay.innerHTML = `<span style="font-size:1.1rem;">${val}</span>`;
-                } else {
-                    avatarDisplay.textContent = val;
-                    brandDisplay.textContent = val;
-                }
-                try { localStorage.setItem('lunar-avatar', JSON.stringify({ val, type })); } catch (e) { }
-            }
-
-            document.querySelectorAll('.avatar-opt, .avatar-init-opt').forEach(opt => {
-                opt.addEventListener('click', () => {
-                    setAvatar(opt.dataset.val, opt.dataset.avatar);
-                });
-            });
-
-            // Restore avatar
-            try {
-                const saved = JSON.parse(localStorage.getItem('lunar-avatar'));
-                if (saved) setAvatar(saved.val, saved.type);
-            } catch (e) { }
-
-            // ── How to use panel ──────────────────────────────
-            document.getElementById('howto-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                activePanel === 'howto-panel' ? closeAllPanels() : openPanel('howto-panel');
-            });
-            document.getElementById('close-howto-panel').addEventListener('click', closeAllPanels);
-
-            // ── Nav active state ──────────────────────────────
-            document.querySelectorAll('.topbar-link').forEach(link => {
-                link.addEventListener('click', function (e) {
-                    const href = this.getAttribute('href');
-                    if (href && href !== '#') return;  // real links (e.g. Home) navigate
-                    e.preventDefault();
-                    document.querySelectorAll('.topbar-link').forEach(l => l.classList.remove('active'));
-                    this.classList.add('active');
-                });
-            });
-
-            // ── Notification dot (cosmetic) ───────────────────
-            const notifBtn = document.getElementById('notif-btn');
-            notifBtn.style.position = 'relative';
-            const dot = document.createElement('span');
-            dot.style.cssText = 'position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:#ef4444;';
-            notifBtn.appendChild(dot);
-            notifBtn.addEventListener('click', () => { dot.style.display = 'none'; });
-
-        })();
-    </script>
-
-    <script src="static/nebula.js?v=20260622b"></script>
-    <script src="static/script.js?v=20260622b"></script>
+    <script src="static/mrsolis-scene.js"></script>
+    <script src="static/mrsolis-wire.js"></script>
+    <script src="static/mrsolis-pages.js"></script>
+    <script src="static/mrsolis-calc.js"></script>
+    <script src="static/mrsolis-voice.js"></script>
+    <script src="static/mrsolis-brain.js"></script>
+    <script src="static/mrsolis-video.js"></script>
 </body>
-
 </html>

@@ -12,7 +12,7 @@ no setup**.
 │   • loads the UI the backend serves, kills it on quit          │
 │                                                                │
 │   └── lunar-backend  (PyInstaller binary, dist/lunar-backend)  │
-│         FastAPI + PyMuPDF + RapidOCR + sympy + the frontend    │
+│         FastAPI + PDFium + RapidOCR + sympy + the frontend     │
 │         └── llama.cpp (llama-cpp-python) runs the GGUF models  │
 │               models/  ← bundled as Electron extraResources    │
 └──────────────────────────────────────────────────────────────┘
@@ -56,8 +56,11 @@ CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_AVX512=OFF -DGGML_FMA=ON -DG
 #    (For quick LOCAL testing only, a prebuilt wheel is fine:
 #       pip install "llama-cpp-python>=0.3.2" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu )
 
-# 3. Download the GGUF models into ./models  (~1.2 GB, one time)
+# 3. Download the models into ./models  (~1.4 GB, one time: the GGUFs + the voice models in models/voice)
 python scripts/fetch_models.py
+
+# 4. Download the AI engine (llama-server) and FFmpeg into ./runtime  (~100 MB, pinned + SHA-256 checked)
+python scripts/fetch_runtime.py
 ```
 
 > The CI workflow already does the portable build for you — this manual step is

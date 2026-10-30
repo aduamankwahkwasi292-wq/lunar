@@ -1,8 +1,10 @@
 name: Build Lunar installers
 
-# Builds the Windows / macOS / Linux installers and attaches them to the GitHub
-# Release. Publish a Release (or push a v* tag and publish it) and three
-# double-click installers appear on that release automatically.
+# Builds the Windows installer and attaches it to the GitHub Release. Publish a Release and the installer (plus the
+# update files installed copies read) appears on it. MrSOLIS 3 is Windows-only (its Terms and website say so, and it
+# has only ever been tested there): add macos-latest / ubuntu-latest back to the matrix once they are tested.
+# Since 2026-06 the owner's GitHub account is locked over billing, which stops every job here before it starts;
+# until that is cleared, RELEASE.md "Building on this laptop" does the same steps by hand.
 on:
   release:
     types: [published]
@@ -18,11 +20,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # A release with the placeholder licence-server address could never be activated by anyone.
+      - name: Check the licence server address is set
+        shell: bash
+        run: |
+          if grep -q "licence.mrsolis.example" desktop/licence.js; then
+            echo "::error::desktop/licence.js still points at licence.mrsolis.example: set LIVE_SERVER (licence-server/README.md step 7)."
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,32 +46,49 @@ jobs:
           node-version: "20"
 
       # --- Python backend deps ---------------------------------------------------
-      # llama.cpp is built from source as a PORTABLE binary (GGML_NATIVE=OFF) so the
-      # shipped app runs on ANY CPU — not just the build runner's. (A -march=native
-      # or AVX-512 wheel crashes with "illegal instruction" on older CPUs.)
+      # No llama-cpp-python since 3.0.0: the brain runs in llama-server (below), and Lunar 1's built-in model is
+      # no longer shipped (requirements.txt).
       - name: Install Python deps
         shell: bash
         run: |
           python -m pip install --upgrade pip wheel
           python -m pip install -r requirements.txt
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            export CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_METAL=OFF"
-          else
-            export CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_AVX512=OFF"
-          fi
-          python -m pip install --force-reinstall --no-binary llama-cpp-python "llama-cpp-python>=0.3.2"
 
-      # --- Bundled GGUF models (cached so they download at most once) -----------
+      # --- Voice models (cached so they download at most once) ------------------
       - name: Cache models
         id: models
         uses: actions/cache@v4
         with:
           path: models
-          key: gguf-models-${{ hashFiles('scripts/fetch_models.py') }}-v1
+          key: voice-models-${{ hashFiles('scripts/fetch_models.py') }}-v1
 
       - name: Fetch models
         if: steps.models.outputs.cache-hit != 'true'
-        run: python scripts/fetch_models.py
+        run: python scripts/fetch_models.py --voice
+
+      # --- MrSOLIS 3's runtime: the AI engine (llama-server b11721) and FFmpeg (LGPL) ---
+      # Pinned downloads, SHA-256 checked; packaged as extraResources (desktop/package.json).
+      - name: Cache runtime
+        id: runtime
+        uses: actions/cache@v4
+        with:
+          path: |
+            runtime/llama.cpp
+            runtime/ffmpeg
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/fetch_runtime.py') }}
+
+      - name: Fetch runtime
+        if: steps.runtime.outputs.cache-hit != 'true'
+        run: python scripts/fetch_runtime.py
+
+      # --- Compile the backend's licence check (hardening, 2026-10-30) ---------------
+      # A native module can't be read or edited like gate.py, and main.js refuses an engine whose compiled check
+      # was swapped (desktop/build/harden.js fingerprints it). gate.py is moved aside so PyInstaller bundles only this.
+      - name: Compile the licence check (Cython)
+        shell: bash
+        run: |
+          python -m pip install "cython>=3.0"
+          python scripts/build_gate.py --release
 
       # --- Freeze the backend into the sidecar binary ---------------------------
       - name: Freeze backend (PyInstaller)
@@ -82,11 +110,14 @@ jobs:
       # metadata (latest.yml / latest-mac.yml / latest-linux.yml + .blockmap) to the
       # release, which is what installed apps read to detect updates. On manual runs
       # it just builds (artifacts are uploaded below).
+      # The release is already published when this runs (that's the trigger), so package.json's publish entry says
+      # releaseType "release"; EP_GH_IGNORE_TIME lets a re-run upload after electron-builder's 2-hour window.
       - name: Build installer
         working-directory: desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"   # no code-signing on CI
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: "true"
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
@@ -96,6 +127,7 @@ jobs:
           fi
 
       - name: Upload build artifacts
+        if: github.event_name != 'release'         # a release already holds them
         uses: actions/upload-artifact@v4
         with:
           name: lunar-${{ matrix.os }}

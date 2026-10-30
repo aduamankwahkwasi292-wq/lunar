@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MrSOLIS 2-AL — maths practice</title>
+    <link rel="shortcut icon" href="static/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="static/mrsolis.css">
+    <link rel="stylesheet" href="static/mrsolis-sqe.css">
+</head>
+<!-- The SQE window: MrSOLIS 2-AL inside MrSOLIS 3. A student brings a maths question; CUSTOM-SQE (backend/sqe)
+     makes fresh versions of it and works every answer out exactly. Opened from Quizzes → SQE. -->
+<body class="sqe">
+    <!-- Icons: Feather (MIT), the same set as the main window. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-quiz" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+        <symbol id="i-min" viewBox="0 0 24 24"><line x1="6" y1="12" x2="18" y2="12"/></symbol>
+        <symbol id="i-max" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></symbol>
+        <symbol id="i-reset" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+        <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M18 4H6l6 8-6 8h12"/></symbol>
+        <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15"/><line x1="9" y1="2" x2="15" y2="2"/></symbol>
+        <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+        <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5"/><rect x="7.5" y="5.5" width="9" height="4" rx="1"/><line x1="8" y1="13" x2="9" y2="13"/><line x1="11.5" y1="13" x2="12.5" y2="13"/><line x1="15" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="9" y2="17"/><line x1="11.5" y1="17" x2="12.5" y2="17"/><line x1="15" y1="17" x2="16" y2="17"/></symbol>
+        <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="7" y1="14" x2="17" y2="14"/></symbol>
+    </svg>
+
+    <canvas id="stars" aria-hidden="true"></canvas>
+
+    <div id="sqe">
+        <header id="topbar">
+            <div class="brand">
+                <svg class="logo" viewBox="0 0 44 36" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="logo-metal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#bfc2c6"/><stop offset="1" stop-color="#7c8086"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M4 32V6l14 14L32 6v26" fill="none" stroke="url(#logo-metal)" stroke-width="5" stroke-linejoin="miter"/>
+                    <circle cx="39" cy="29.5" r="3" fill="#fff"/>
+                </svg>
+                <div class="brand-text">
+                    <div class="brand-name">MrSOLIS <span>2-AL</span></div>
+                    <div class="brand-sub">Similar questions · powered by CUSTOM-SQE</div>
+                </div>
+            </div>
+            <div class="top-right">
+                <div class="win-ctrls" id="winCtrls">
+                    <button type="button" id="win-min" title="Minimize"><svg class="ico"><use href="#i-min"/></svg></button>
+                    <button type="button" id="win-max" title="Maximize"><svg class="ico"><use href="#i-max"/></svg></button>
+                    <button type="button" id="win-close" class="close" title="Close"><svg class="ico"><use href="#i-close"/></svg></button>
+                </div>
+            </div>
+        </header>
+
+        <main id="sqe-stage">
+            <!-- ═══ start: bring a question ═══ -->
+            <section class="page" id="vStart">
+                <div class="page-head">
+                    <div>
+                        <h1>Practise maths</h1>
+                        <p>Type a maths question you have. CUSTOM-SQE makes fresh versions of it with new numbers and works
+                            out every answer exactly — no guessing. It knows calculus, equations, algebra, numbers, sequences,
+                            statistics, trigonometry, coordinates, matrices and word problems (physics, money, areas).</p>
+                    </div>
+                </div>
+                <div class="panel ask">
+                    <label class="section-title" for="q">Your question</label>
+                    <div class="q-wrap">
+                        <textarea id="q" class="textarea" rows="3" spellcheck="false"
+                            placeholder="e.g.  Differentiate f(x) = 3x² + 2x"></textarea>
+                        <button type="button" class="icon-btn kb-toggle" data-kb="q" title="Maths keyboard"><svg class="ico"><use href="#i-keys"/></svg></button>
+                    </div>
+                    <div class="examples" id="examples"><span>Try one:</span></div>
+                    <div class="msg" id="startMsg"></div>
+                </div>
+                <div class="panel">
+                    <div class="setting">
+                        <div><b>How many</b><span>New questions made from yours. None repeats while this window is open.</span></div>
+                        <div class="seg" id="segN"></div>
+                    </div>
+                    <div class="setting">
+                        <div><b>Timer</b><span>For the whole practice. It finishes by itself at zero.</span></div>
+                        <div class="seg" id="segT"></div>
+                    </div>
+                    <div class="setting">
+                        <div><b>Answers</b><span>Pick from four, or type your own. Typed answers are marked fairly: ½ = 0.5, 2(x+1) = 2x+2.</span></div>
+                        <div class="seg" id="segA"></div>
+                    </div>
+                    <div class="setting last">
+                        <div><b>Ready?</b><span>The working for every question is shown at the end.</span></div>
+                        <button type="button" class="btn primary" id="go"><svg class="ico"><use href="#i-play"/></svg>Make my practice</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ practice: one question at a time ═══ -->
+            <section class="page" id="vRun" hidden>
+                <div class="run-top">
+                    <div class="run-progress">
+                        <b id="rNum">Question 1 of 10</b>
+                        <div class="bar"><i id="rBar"></i></div>
+                    </div>
+                    <div class="row">
+                        <span class="pill" id="rScore">Score 0</span>
+                        <span class="pill" id="rTimer" hidden><svg class="ico"><use href="#i-timer"/></svg><b>10:00</b></span>
+                        <button type="button" class="btn small" id="calcBtn" title="A scientific calculator, beside your question" aria-pressed="false"><svg class="ico"><use href="#i-calc"/></svg>Calculator</button>
+                        <button type="button" class="btn small" id="exit">Exit</button>
+                    </div>
+                </div>
+                <div class="silver qcard">
+                    <div class="q-kind" id="rKind"></div>
+                    <div class="q-text" id="rQ"></div>
+                    <div class="q-read" id="rRead" hidden></div>
+                </div>
+                <div class="options" id="rOptions"></div>
+                <div class="typed" id="rTyped" hidden>
+                    <input id="rAns" class="field" placeholder="Type your answer" spellcheck="false" autocomplete="off">
+                    <button type="button" class="icon-btn kb-toggle" data-kb="rAns" title="Maths keyboard"><svg class="ico"><use href="#i-keys"/></svg></button>
+                    <button type="button" class="btn primary" id="rCheck"><svg class="ico"><use href="#i-check"/></svg>Check</button>
+                </div>
+                <div class="self" id="rSelf" hidden>
+                    <button type="button" class="btn" id="rReveal">Show the proof</button>
+                    <div class="row" id="rSelfMark" hidden>
+                        <span class="muted">Did yours match?</span>
+                        <button type="button" class="btn small" id="rGotIt">Yes</button>
+                        <button type="button" class="btn small" id="rNotYet">Not yet</button>
+                    </div>
+                </div>
+                <div class="feedback" id="rFeedback"></div>
+                <div class="run-next"><button type="button" class="btn primary" id="rNext" hidden>Next<svg class="ico"><use href="#i-arrow"/></svg></button></div>
+            </section>
+
+            <!-- ═══ review: score + the working for every question ═══ -->
+            <section class="page" id="vReview" hidden>
+                <div class="page-head">
+                    <div>
+                        <h1 id="vScore"></h1>
+                        <p id="vSub"></p>
+                    </div>
+                    <div class="row">
+                        <button type="button" class="btn primary" id="again"><svg class="ico"><use href="#i-reset"/></svg>Again with new numbers</button>
+                        <button type="button" class="btn" id="newQ"><svg class="ico"><use href="#i-edit"/></svg>New question</button>
+                    </div>
+                </div>
+                <div class="panel own" id="ownBox" hidden>
+                    <div class="section-title">Your own question</div>
+                    <div class="rv-q" id="ownQ"></div>
+                    <div class="rv-ans">Answer: <b id="ownA"></b></div>
+                    <button type="button" class="btn small ghost" id="ownShow">Show the working</button>
+                    <div class="silver steps" id="ownSteps" hidden></div>
+                </div>
+                <div class="section-title">Every question, with the working</div>
+                <div class="stack" id="reviewList"></div>
+            </section>
+        </main>
+
+        <!-- the maths keyboard: every symbol CUSTOM-SQE reads -->
+        <div class="kb" id="kb" hidden>
+            <div class="kb-head"><b>Maths keyboard</b><button type="button" class="icon-btn small" id="kbClose" title="Close"><svg class="ico"><use href="#i-close"/></svg></button></div>
+            <div class="kb-body" id="kbBody"></div>
+        </div>
+
+        <!-- the calculator: MrSOLIS 3's own (mrsolis-calc.js), docked beside the question while it's open -->
+        <aside id="calcDock" aria-label="Calculator" hidden></aside>
+
+        <div class="modal" id="confirm" hidden>
+            <div class="panel">
+                <b>Leave this practice?</b>
+                <p class="muted">Your answers so far won’t be kept.</p>
+                <div class="row"><button type="button" class="btn primary" id="leaveYes">Leave</button><button type="button" class="btn" id="leaveNo">Keep going</button></div>
+            </div>
+        </div>
+    </div>
+    <script src="static/mrsolis-calc.js"></script>
+    <script src="static/mrsolis-sqe.js"></script>
+</body>
+</html>

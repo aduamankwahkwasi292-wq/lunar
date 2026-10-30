@@ -57,12 +57,27 @@ def _mathify(s: str) -> str:
 
 
 def _sentences(text: str) -> list:
-    """Split a slide into clean candidate sentences."""
+    """Split a slide into clean candidate sentences.
+
+    PDF text breaks lines mid-sentence ("…stays at rest, and an\\nobject in motion…"),
+    so a line is first joined to the next when it doesn't end a sentence and the next
+    one carries on in lower case; headings and bullets stay on their own.
+    """
+    blocks = []
+    for line in (text or "").splitlines():
+        line = re.sub(r"\s+", " ", line).strip(" \t-•▪●◦")
+        if not line:
+            continue
+        if blocks and not re.search(r"[.!?:;]$", blocks[-1]) and re.match(r"[a-z(]", line):
+            blocks[-1] += " " + line
+        else:
+            blocks.append(line)
     out = []
-    for raw in re.split(r"(?<=[.!?])\s+|\n+", text or ""):
-        s = re.sub(r"\s+", " ", raw).strip(" \t-")
-        if 14 <= len(s) <= 320 and re.search(r"[a-zA-Z]", s):
-            out.append(s)
+    for block in blocks:
+        for raw in re.split(r"(?<=[.!?])\s+", block):
+            s = raw.strip()
+            if 14 <= len(s) <= 320 and re.search(r"[a-zA-Z]", s):
+                out.append(s)
     return out
 
 
@@ -289,6 +304,23 @@ _STOP_LEAD = {
 }
 
 
+# Lines that are course furniture or instructions, not content to be tested on.
+_QUIZ_SKIP = re.compile(
+    r"\b(next (?:lecture|class|week|time)|previous lecture|homework|assignment|due|quiz|"
+    r"practice problems?|exercises?|summary|recap|agenda|outline|objectives?|today)\b", re.I)
+_IMPERATIVE = {
+    "show", "write", "use", "find", "calculate", "work", "solve", "explain", "describe", "list",
+    "give", "state", "draw", "compare", "remember", "note", "try", "read", "see", "include",
+    "substitute", "check", "label", "make", "take", "answer", "discuss", "identify", "complete",
+}
+# A list's subject has to name a collection ("the three types of rock are …").
+_ENUM_NOUN = re.compile(
+    r"\b(types|kinds|categories|forms|classes|properties|steps|stages|components|elements|parts|"
+    r"conditions|axioms|features|factors|causes|effects|functions|characteristics|principles|"
+    r"laws|rules|methods|layers|phases|groups|sources|uses|advantages|disadvantages)\b", re.I)
+_ENUM_VERB = re.compile(r"\s+(?:are|include[s]?|consists? of)\s*:?\s+|:\s+", re.I)
+
+
 def _definition_q(s: str):
     m = _DEF.match(s) or _DEF_COLON.match(s)
     if not m:
@@ -296,9 +328,11 @@ def _definition_q(s: str):
     term = m.group("term").strip().rstrip(".")
     rest = m.group("rest").strip()
     words = term.split()
-    if not words or _BAD_SUBJECT.search(term) or len(rest) < 8:
+    if not words or _BAD_SUBJECT.search(term) or _QUIZ_SKIP.search(term) or len(rest) < 8:
         return None
-    if len(words) > 5 or words[0].lower() in _STOP_LEAD:
+    if len(words) > 5 or words[0].lower() in _STOP_LEAD or words[0].lower() in _IMPERATIVE:
+        return None
+    if len(rest.split()) < 3:                       # "X: Inertia" is a heading, not a definition
         return None
     # A generic single lowercase variable ("a", "x") isn't a definable concept;
     # a single uppercase symbol (Q, N, R) usually is. Otherwise require a real word.
@@ -306,27 +340,54 @@ def _definition_q(s: str):
         return None
     if not term.isupper() and not re.search(r"[A-Za-z]{3}", term):
         return None
-    return {"type": "definition", "kind": "text", "q": f"What is {term}?", "a": s}
+    article = "What are" if m.group(0).lower().split(term.lower(), 1)[-1].lstrip().startswith("are") else "What is"
+    return {"type": "definition", "kind": "text", "q": f"{article} {term}?", "a": s, "key": rest}
 
 
 def _enumeration_q(s: str):
-    if not _ENUM_CUE.search(s) or _BAD_SUBJECT.search(s):
+    if _BAD_SUBJECT.search(s) or _QUIZ_SKIP.search(s):
         return None
-    tail = re.sub(r"^.*?(?:are|include[s]?|consist[s]? of|:)\s*", "", s, flags=re.I)
+    m = _ENUM_VERB.search(s)
+    if not m:
+        return None
+    subject = s[:m.start()].strip(" :")
+    words = subject.split()
+    if not _ENUM_NOUN.search(subject) or not (2 <= len(words) <= 9) or words[0].lower() in _IMPERATIVE:
+        return None
+    tail = s[m.end():].strip()
     items = [it.strip(" .;") for it in re.split(r",\s*|\s+and\s+|\s+or\s+", tail)]
-    items = [it for it in items if len(it) > 1]
-    if len(items) < 2:
+    if len([it for it in items if len(it) > 1]) < 2:
         return None
-    cue = _ENUM_CUE.search(s).group(0).lower()
-    return {"type": "enumeration", "kind": "text",
-            "q": f"List the {cue} described on this slide.", "a": s}
+    subject = re.sub(r"^the\s+", "", subject, flags=re.I)
+    return {"type": "enumeration", "kind": "text", "q": f"Name the {subject}.", "a": s, "key": tail}
 
 
-def _theorem_q(s: str):
-    if not _THEOREM.search(s) or _BAD_SUBJECT.search(s):
+def _theorem_q(s: str, following: str = ""):
+    """A named law / rule and its statement.
+
+    'Newton's Second Law: F = ma' → "State Newton's Second Law." (answer: F = ma).
+    A heading like 'Newton's First Law: Inertia' takes its statement from the next
+    sentence. 'The law of X states that …' → "What does the law of X state?".
+    """
+    if not _THEOREM.search(s) or _BAD_SUBJECT.search(s) or _QUIZ_SKIP.search(s):
         return None
-    kind = _THEOREM.search(s).group(0).lower()
-    return {"type": "theorem", "kind": "text", "q": f"State the {kind} given on this slide.", "a": s}
+    name, sep, body = s.partition(":")
+    if sep and _THEOREM.search(name) and len(name.split()) <= 7:
+        name, body = name.strip(), body.strip().rstrip(".")
+        statement = body if (len(body.split()) >= 5 or "=" in body) else ""
+        if not statement and following and len(following.split()) >= 6 and not _THEOREM.search(following[:40]):
+            statement = following.rstrip(".")
+        if not statement:
+            return None
+        return {"type": "theorem", "kind": "text", "q": f"State {name}.", "a": statement, "key": statement}
+    m = re.match(r"^(?P<name>.{4,80}?\b(?:theorem|law|principle|rule|postulate)\b(?: of [\w\s'-]{2,40}?)?)\s+"
+                 r"(?:states|says|tells us)\s+(?:that\s+)?(?P<body>.{10,})$", s, re.I)
+    if m:
+        name = m.group("name").strip()
+        name = name[0].lower() + name[1:] if name.lower().startswith("the ") else name
+        return {"type": "theorem", "kind": "text", "q": f"What does {name} state?", "a": s,
+                "key": m.group("body").rstrip(".")}
+    return None
 
 
 # ----------------------------------------------------------------------
@@ -339,16 +400,39 @@ _FUNC_CALL = re.compile(r"^[A-Za-z][A-Za-z0-9]*\s*\([^()]*\)\.?$")
 _STOP_TERM = re.compile(
     r"^(since|this|that|these|those|there|then|thus|hence|therefore|so|where|for|"
     r"let|we|it|if|when|which|in|on|by|as|also|now|here|each|every|both|either|such)\b", re.I)
+# A formula as the slide prints it: the left side may be a reciprocal ("1/R = 1/R1 + 1/R2") and the right side a
+# chain ("P = V I = I^2 R = V^2/R"), kept whole. (_ASSIGN took only the letter before the last "=", so these became
+# "R = 1/R1 + 1/R2" and "R = V^2/R".)
+_FORMULA = re.compile(r"\b((?:\d+\s*/\s*)?[A-Za-z][A-Za-z0-9_]{0,12})\s*=\s*"
+                      r"([^=,\n;]+?(?:\s*=\s*[^=,\n;]+?)*)(?=(?:[,;\n]|\.\s|\s{2,}|$))")
+# What comes right before a left side that is only the tail of a longer expression ("I^2 R = …", "V I = …"):
+# an operator, a digit, a superscript or subscript, or a lone letter.
+_MATH_BEFORE = re.compile(r"(?:[-+*/^=(]|[0-9²³¹⁰-₟]|(?:^|\s)[A-Za-z])$")
+_NUM_UNIT = re.compile(r"\d+(?:\.\d+)?\s+[A-Za-zΩ°µ%]+\b")    # "12 V", "4 Ω", "0.5 h"
+
+
+def _worked_numbers(part: str) -> bool:
+    """A link of a worked example ("12 / 4", "12 V / 4 Ω", "3 A"): numbers and units, no variables."""
+    return bool(re.search(r"\d", part)) and not re.search(r"[A-Za-z]", _NUM_UNIT.sub(" ", part))
 
 
 def formula_lines(text: str) -> list:
-    """Real formula relations on a slide, e.g. 'V = I × R' or 'A = pi × r^2'."""
+    """Real formula relations on a slide, e.g. 'V = I × R', 'A = pi × r^2' or '1 / R = 1 / R1 + 1 / R2'."""
     math = _mathify(text)
     out = []
-    for m in _ASSIGN.finditer(math):
+    for m in _FORMULA.finditer(math):
+        if _MATH_BEFORE.search(math[:m.start()].rsplit("\n", 1)[-1].rstrip()):    # only this line counts
+            continue
         var, rhs = m.group(1), m.group(2).strip()
         rhs = re.split(r"\s{2,}", rhs)[0]
         rhs = re.split(r"\.\s", rhs)[0].strip().rstrip(".")   # cut trailing prose/sentence
+        links = [p.strip() for p in rhs.split("=")]
+        if _worked_numbers(links[0]):                        # "I = 12 / 4": a worked value, not a formula
+            continue
+        keep = 1                                             # "I = V / R = 12 / 4 = 3 A" -> "I = V / R"
+        while keep < len(links) and not _worked_numbers(links[keep]):
+            keep += 1
+        rhs = " = ".join(links[:keep])
         if not (1 <= len(rhs) <= 40) or not re.search(r"[A-Za-z0-9]", rhs):
             continue
         if "{" in rhs or "}" in rhs:               # set-builder notation, not a formula
@@ -374,12 +458,19 @@ def definition_pairs(text: str) -> list:
         term = m.group("term").strip().rstrip(".")
         rest = m.group("rest").strip().rstrip(".")
         tl = term.lower()
-        # The term must be a real concept word, not a proof fragment or a symbol.
-        if _BAD_SUBJECT.search(term) or _STOP_TERM.match(term):
+        # The term must be a real concept word, not a proof fragment, a symbol,
+        # an instruction ("Show your working: …") or course furniture ("Next lecture: …").
+        if _BAD_SUBJECT.search(term) or _STOP_TERM.match(term) or _QUIZ_SKIP.search(term):
+            continue
+        if tl.split()[0] in _IMPERATIVE:
             continue
         if len(term) < 3 or len(term.split()) > 6 or re.search(r"\d", term):
             continue
         if not re.search(r"[aeiou]", tl) or tl in ("it", "this", "that", "there", "they"):
+            continue
+        # "An ammeter measures current and is always connected in series": the "term" ends in a joining word,
+        # so it is half a sentence ("ammeter measures current and"), not a concept.
+        if re.search(r"\b(and|or|but|which|that|who|so)$", tl):
             continue
         if len(rest) < 10:
             continue
@@ -391,8 +482,19 @@ def definition_pairs(text: str) -> list:
 
 
 def theorem_lines(text: str) -> list:
-    return [s for s in _sentences(text)
-            if _THEOREM.search(s) and not _BAD_SUBJECT.search(s)]
+    """Laws / rules on a slide, each with its statement when the slide gives one
+    ("Newton's First Law: An object at rest stays at rest, …")."""
+    sents = _sentences(text)
+    out = []
+    for i, s in enumerate(sents):
+        if not _THEOREM.search(s) or _BAD_SUBJECT.search(s):
+            continue
+        q = _theorem_q(s, sents[i + 1] if i + 1 < len(sents) else "")
+        if q and q["q"].startswith("State "):
+            out.append(f"{q['q'][6:].rstrip('.')}: {q['a']}")
+        else:
+            out.append(s)
+    return out
 
 
 def build_crib_sheet(indexed_slides: list) -> str:
@@ -437,11 +539,12 @@ def build_crib_sheet(indexed_slides: list) -> str:
 
 def recall_questions(slide_text: str) -> list:
     out, seen = [], set()
-    for s in _sentences(slide_text):
+    sents = _sentences(slide_text)
+    for i, s in enumerate(sents):
+        following = sents[i + 1] if i + 1 < len(sents) else ""
         # Theorems and lists first, so "X are A, B, C" / "Theorem: …" aren't
         # mislabeled as a plain definition.
-        for builder in (_theorem_q, _enumeration_q, _definition_q):
-            q = builder(s)
+        for q in (_theorem_q(s, following), _enumeration_q(s), _definition_q(s)):
             if not q:
                 continue
             key = q["q"].lower()
@@ -544,6 +647,14 @@ async def grade(student_answer: str, question: dict) -> bool:
                 pass
         return False
 
+    # Compare against the part that matters ("is …" for a definition, the statement of a law).
+    gold = question.get("key") or gold
+    # Formulas: same symbols in the same order, ignoring spaces and how × is written.
+    squash = lambda t: re.sub(r"[\s*·×⋅]", "", _mathify(t).lower())
+    if "=" in gold and len(squash(gold)) <= 40:
+        g, st = squash(gold), squash(student)
+        if g and (g in st or st in g and len(st) >= len(g) * 0.8):
+            return True
     # Text answer: meaning match via embeddings, with a token-overlap floor.
     if _token_overlap(student, gold) >= 0.6:
         return True

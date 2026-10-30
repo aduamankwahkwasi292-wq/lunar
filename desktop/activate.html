@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <title>Activate MrSOLIS</title>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    [hidden] { display: none !important; }
+    body {
+      background: radial-gradient(120% 120% at 50% 0%, #161617 0%, #000 70%);
+      color: #f1f1f2; font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 28px 40px; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, 0.14);
+      -webkit-app-region: drag;
+    }
+    .logo { width: 56px; height: 46px; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.45)); }
+    h1 { margin: 0; font-weight: 600; font-size: 22px; letter-spacing: 0.02em; }
+    p { margin: 0; font-size: 13.5px; line-height: 1.5; color: #a9acb1; text-align: center; max-width: 380px; }
+    p b { color: #e4e5e7; font-weight: 600; }
+    p.fine { font-size: 12.5px; }
+    .view { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 380px; }
+    form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; -webkit-app-region: no-drag; }
+    label { font-size: 12.5px; color: #a9acb1; display: flex; flex-direction: column; gap: 6px; }
+    input {
+      font: 600 17px/1 'Cascadia Mono', Consolas, monospace; letter-spacing: 0.08em; text-align: center;
+      padding: 13px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.22);
+      background: #0c0d0e; color: #fff; outline: none; text-transform: uppercase;
+    }
+    input.plain { font: 15px/1.2 'Segoe UI', system-ui, sans-serif; letter-spacing: 0; text-transform: none; text-align: left; }
+    input:focus { border-color: #fff; }
+    button {
+      font: 600 14px 'Segoe UI', system-ui, sans-serif; padding: 12px; border-radius: 10px; border: 0; cursor: pointer;
+      background: #fff; color: #000; -webkit-app-region: no-drag;
+    }
+    button:disabled { opacity: 0.55; cursor: default; }
+    button.ghost { background: transparent; color: #e4e5e7; border: 1px solid rgba(255, 255, 255, 0.25); font-weight: 500; }
+    button.small { padding: 6px 11px; font-size: 12.5px; border-radius: 8px; }
+    button.link { background: none; color: #d5d7da; font-weight: 500; padding: 4px; text-decoration: underline; text-underline-offset: 3px; }
+    .msg { min-height: 40px; font-size: 13px; line-height: 1.45; text-align: center; color: #e4e5e7; }
+    .msg.bad { color: #ffb4b4; }
+    .msg.good { color: #b8f5c8; }
+    .or { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8e9095; }
+    .row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .code {
+      font: 600 21px/1 'Cascadia Mono', Consolas, monospace; letter-spacing: 0.06em; padding: 13px 16px;
+      border-radius: 10px; border: 1px dashed rgba(255, 255, 255, 0.4); user-select: text; -webkit-app-region: no-drag;
+    }
+    .box {
+      width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.22); background: #0c0d0e;
+      -webkit-app-region: no-drag;
+    }
+    .box .big { font: 600 20px/1.1 'Cascadia Mono', Consolas, monospace; letter-spacing: 0.04em; user-select: text; }
+    .box .sub { font-size: 12px; color: #a9acb1; margin-top: 4px; }
+    .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.15); border-top-color: #fff; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .quit { -webkit-app-region: no-drag; background: none; color: #8e9095; font-weight: 400; padding: 4px; }
+    .quit:hover { color: #fff; }
+    small { font-size: 11.5px; color: #75787d; text-align: center; -webkit-app-region: no-drag; user-select: text; }
+  </style>
+</head>
+<body>
+  <svg class="logo" viewBox="0 0 44 36" aria-hidden="true">
+    <defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="0.55" stop-color="#bfc2c6"/><stop offset="1" stop-color="#7c8086"/></linearGradient></defs>
+    <path d="M4 32V6l14 14L32 6v26" fill="none" stroke="url(#m)" stroke-width="5"/>
+    <circle cx="39" cy="29.5" r="3" fill="#fff"/>
+  </svg>
+  <h1 id="title">Activate MrSOLIS 3</h1>
+
+  <div class="view" id="vCode">
+    <p id="why">Type the licence code you got when you bought MrSOLIS. This needs the internet once — after that MrSOLIS works offline.</p>
+    <form id="f">
+      <input id="code" placeholder="MRS-XXXX-XXXX-XXXX" maxlength="22" autocomplete="off" spellcheck="false" autofocus>
+      <button id="go" type="submit">Activate</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <div class="or" id="pendingRow" hidden>Paid by Mobile Money? <button class="link" id="toPending" type="button">See your payment</button></div>
+    <div class="or" id="buyRow" hidden>No code yet? <button class="link" id="toBuy" type="button">Buy MrSOLIS</button></div>
+  </div>
+
+  <div class="view" id="vBuy" hidden>
+    <p><b id="buyPrice">One price</b>, paid once.
+      <span id="howOnline">Pay with <b>Mobile Money</b> or a <b>card</b> on <span id="provider">a</span> secure payment page, and MrSOLIS activates by itself.</span>
+      <span id="howMomo" hidden>Pay by <b>Mobile Money</b>, and MrSOLIS activates by itself once we confirm your payment.</span></p>
+    <form id="bf" novalidate>
+      <label>Your email: your receipt is sent here
+        <input id="email" class="plain" type="email" maxlength="120" placeholder="you@example.com" autocomplete="email" spellcheck="false">
+      </label>
+      <label id="payerRow" hidden>The Mobile Money number you’ll pay from
+        <input id="payer" class="plain" type="tel" maxlength="16" placeholder="024 123 4567" autocomplete="tel" spellcheck="false">
+      </label>
+      <button id="pay" type="submit">Continue to payment</button>
+      <div class="msg" id="bmsg"></div>
+    </form>
+    <button class="link" id="altMethod" type="button" hidden>Or send Mobile Money to our number instead</button>
+    <button class="link" id="haveCode" type="button">I already have a code</button>
+  </div>
+
+  <div class="view" id="vMomo" hidden>
+    <p>Send <b id="mAmount">GHS 12</b> by Mobile Money to:</p>
+    <div class="box">
+      <div><div class="big" id="mNumber"></div><div class="sub" id="mWho"></div></div>
+      <button class="ghost small" id="copyNum" type="button">Copy number</button>
+    </div>
+    <p>In the <b>reference</b>, type:</p>
+    <div class="box">
+      <div class="big" id="mRef"></div>
+      <button class="ghost small" id="copyRef" type="button">Copy reference</button>
+    </div>
+    <p class="fine">Send it from <b id="mPayer"></b>. We confirm payments by hand, usually within a few hours. You can close MrSOLIS: it activates by itself once the payment is confirmed.</p>
+    <div class="msg" id="mmsg">Waiting for your payment to be confirmed…</div>
+    <button class="link" id="mBack" type="button">Back</button>
+  </div>
+
+  <div class="view" id="vWait" hidden>
+    <div class="spinner" id="spin"></div>
+    <p id="waitText">The payment page opened in your browser. Pay there with <b>Mobile Money</b> or a <b>card</b>: MrSOLIS activates by itself once the payment is confirmed.</p>
+    <div class="code" id="boughtCode" hidden></div>
+    <div class="msg" id="wmsg">Waiting for your payment…</div>
+    <div class="row" id="waitButtons">
+      <button class="ghost" id="reopen" type="button">Open the payment page again</button>
+      <button class="link" id="leave" type="button">Back</button>
+    </div>
+  </div>
+
+  <button class="quit" id="quit" type="button">Close MrSOLIS</button>
+  <small id="help"></small>
+  <script>
+    const L = window.mrsolisLicence;
+    const $ = (id) => document.getElementById(id);
+    const say = (el, text, kind = '') => { $(el).textContent = text; $(el).className = 'msg ' + kind; };
+    const phone = (n) => String(n || '').replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3');
+    const money = (amount, currency) => `${currency} ${amount % 100 ? (amount / 100).toFixed(2) : amount / 100}`;
+    let help = '';
+    let method = 'online';                                     // how this computer is paying: online | momo
+    let momoOrder = null;                                      // what to send where, for Mobile Money
+    function show(view) {
+      for (const v of ['vCode', 'vBuy', 'vMomo', 'vWait']) $(v).hidden = v !== view;
+      $('title').textContent = view === 'vCode' ? 'Activate MrSOLIS 3' : 'Buy MrSOLIS 3';
+    }
+    function setMethod(m) {
+      method = m;
+      $('payerRow').hidden = m !== 'momo';
+      $('howOnline').hidden = m === 'momo';
+      $('howMomo').hidden = m !== 'momo';
+      $('altMethod').hidden = true;
+      $('pay').textContent = m === 'momo' ? 'Continue' : 'Continue to payment';
+    }
+    function showMomo(o, note) {                               // the Mobile Money instructions
+      momoOrder = o;
+      method = 'momo';
+      $('mAmount').textContent = money(o.amount, o.currency);
+      $('mNumber').textContent = phone(o.momo.number);
+      $('mWho').textContent = [o.momo.network, o.momo.name].filter(Boolean).join(' · ');
+      $('mRef').textContent = o.reference;
+      $('mPayer').textContent = phone(o.payer);
+      $('pendingRow').hidden = false;
+      show('vMomo');
+      say('mmsg', note || 'Waiting for your payment to be confirmed…');
+    }
+
+    L.info().then((i) => {
+      help = i.email || '';
+      $('help').textContent = `Help: ${help}`;
+      if (i.reason) $('why').textContent = i.reason;           // e.g. "This licence was refunded or cancelled…"
+      if (i.purchase && i.purchase.method === 'momo') showMomo(i.purchase, 'Checking your payment…');
+      else if (i.buying) { show('vWait'); say('wmsg', 'Checking the payment you started earlier…'); }
+    });
+    L.price().then((p) => {
+      if (p && !p.selling) return;                              // buying inside MrSOLIS isn't open yet
+      const price = p ? money(p.amount, p.currency) : '';
+      if (price) {                                              // the price is in dollars (the user, 2026-10-29), paid in cedis
+        const usd = p.usd ? `US$${p.usd}` : '';
+        $('toBuy').textContent = `Buy MrSOLIS · ${usd || price}`;
+        $('buyPrice').textContent = usd ? `${usd} (${price})` : price;
+      }
+      if (p && p.provider) $('provider').textContent = `${p.provider}’s`;
+      if (p && !p.online && p.momo) setMethod('momo');
+      if (p && p.online && p.momo) $('altMethod').hidden = false;
+      $('buyRow').hidden = false;
+    });
+
+    // MRS-XXXX-XXXX-XXXX as they type
+    $('code').addEventListener('input', () => {
+      const raw = $('code').value.toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^MRS/, '').slice(0, 12);
+      $('code').value = raw ? 'MRS-' + raw.match(/.{1,4}/g).join('-') : '';
+    });
+    $('f').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = $('code').value.trim();
+      if (!code) { $('code').focus(); return; }
+      $('go').disabled = true;
+      say('msg', 'Checking your code…');
+      const r = await L.activate(code);
+      if (r.ok) { say('msg', 'Activated — welcome to MrSOLIS!', 'good'); return; }   // the app opens by itself
+      say('msg', r.message, 'bad');
+      $('go').disabled = false;
+    });
+
+    // ── buying ──────────────────────────────────────────────────────────────────────
+    $('toBuy').addEventListener('click', () => { show('vBuy'); $('email').focus(); });
+    $('toPending').addEventListener('click', () => { if (momoOrder) showMomo(momoOrder); });
+    $('altMethod').addEventListener('click', () => setMethod('momo'));
+    $('haveCode').addEventListener('click', () => show('vCode'));
+    $('bf').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = $('email').value.trim();
+      if (!email) { $('email').focus(); return; }
+      if (method === 'momo' && !$('payer').value.trim()) { $('payer').focus(); return; }
+      $('pay').disabled = true;
+      say('bmsg', method === 'momo' ? 'One moment…' : 'Opening the payment page…');
+      const r = await L.buy(email, method === 'momo' ? { method: 'momo', payer: $('payer').value.trim() } : undefined);
+      $('pay').disabled = false;
+      if (!r.ok) { say('bmsg', r.message, 'bad'); return; }
+      say('bmsg', '');
+      if (r.method === 'momo') { showMomo(r); return; }
+      show('vWait');
+      say('wmsg', 'Waiting for your payment…');
+    });
+    async function copied(button, text) {
+      await L.copy(text);
+      const was = button.textContent;
+      button.textContent = 'Copied ✓';
+      setTimeout(() => { button.textContent = was; }, 1400);
+    }
+    $('copyNum').addEventListener('click', (e) => copied(e.target, momoOrder.momo.number));
+    $('copyRef').addEventListener('click', (e) => copied(e.target, momoOrder.reference));
+    $('mBack').addEventListener('click', () => show('vCode'));          // MrSOLIS keeps checking meanwhile
+    $('reopen').addEventListener('click', () => L.reopen());
+    $('leave').addEventListener('click', () => { L.cancelBuy(); show('vCode'); });
+
+    L.onBuy((d) => {
+      const momo = method === 'momo';
+      if (d.status === 'pending') {
+        if (momo) say('mmsg', d.offline ? 'Waiting for your payment to be confirmed… (checking your internet connection)' : 'Waiting for your payment to be confirmed…');
+        else {
+          show('vWait');
+          say('wmsg', d.attempt === 'failed' ? 'That payment attempt didn’t go through. Try again on the payment page.'
+            : d.offline ? 'Waiting for your payment… (checking your internet connection)' : 'Waiting for your payment…');
+        }
+      } else if (d.status === 'paid') {
+        if (momo) say('mmsg', d.message || 'Payment confirmed! Activating…', d.message ? 'bad' : 'good');
+        else { show('vWait'); say('wmsg', d.message || 'Payment confirmed! Activating…', d.message ? 'bad' : 'good'); }
+      } else if (d.status === 'activated') {
+        show('vWait');
+        $('spin').hidden = true;
+        $('waitButtons').hidden = true;
+        $('quit').hidden = true;
+        $('waitText').textContent = momo ? 'Your licence code (keep it):' : 'Your licence code (keep it, with the receipt from your email):';
+        $('boughtCode').textContent = d.code;
+        $('boughtCode').hidden = false;
+        say('wmsg', 'Activated — welcome to MrSOLIS!', 'good');   // the app opens by itself
+      } else if (d.status === 'rejected') {
+        if (momo || d.method === 'momo') {
+          show('vMomo');
+          say('mmsg', `We couldn’t find your payment. If you sent it, email ${help} with the transaction ID from your SMS.`, 'bad');
+        } else {
+          $('spin').hidden = true;
+          say('wmsg', `The payment doesn’t match the price, so no code was made. Email ${help} with your receipt.`, 'bad');
+        }
+      } else if (d.status === 'timeout') {
+        if (momo) say('mmsg', `Still waiting. If you sent it, MrSOLIS checks again next time you open it. Or email ${help}.`, 'bad');
+        else {
+          $('spin').hidden = true;
+          say('wmsg', `No payment yet. If you paid, open MrSOLIS again later: it checks by itself. Or email ${help}.`, 'bad');
+        }
+      } else if (d.status === 'lost') {
+        $('pendingRow').hidden = true;
+        show('vBuy');
+        say('bmsg', 'That purchase couldn’t be found. Start again.', 'bad');
+      }
+    });
+    $('quit').addEventListener('click', () => L.quit());
+  </script>
+</body>
+</html>

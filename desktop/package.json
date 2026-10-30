@@ -1,6 +1,6 @@
 {
   "name": "lunar-desktop",
-  "version": "1.0.1",
+  "version": "3.0.0",
   "description": "Lunar — your private, on-device AI study classroom.",
   "author": "Kwasi Kwakye & Alex Nyanteng",
   "license": "MIT",
@@ -17,7 +17,9 @@
   },
   "devDependencies": {
     "electron": "^31.7.6",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "javascript-obfuscator": "^5.9.0",
+    "resedit": "^3.1.0"
   },
   "build": {
     "appId": "com.lunar.classroom",
@@ -27,16 +29,22 @@
       {
         "provider": "github",
         "owner": "aduamankwahkwasi292-wq",
-        "repo": "lunar"
+        "repo": "lunar",
+        "releaseType": "release"
       }
     ],
     "directories": {
       "output": "release",
       "buildResources": "build"
     },
+    "afterPack": "build/harden.js",
     "files": [
       "main.js",
-      "splash.html"
+      "preload.js",
+      "updates.js",
+      "licence.js",
+      "splash.html",
+      "activate.html"
     ],
     "extraResources": [
       {
@@ -46,7 +54,26 @@
       {
         "from": "../models",
         "to": "models",
-        "filter": ["**/*.gguf"]
+        "filter": [
+          "voice/**",
+          "!voice/**/test_wavs/**"
+        ]
+      },
+      {
+        "from": "../runtime/llama.cpp",
+        "to": "runtime/llama.cpp",
+        "filter": [
+          "llama-server*",
+          "*.dll",
+          "*.so",
+          "*.so.*",
+          "*.dylib",
+          "LICENSE*"
+        ]
+      },
+      {
+        "from": "../runtime/ffmpeg",
+        "to": "runtime/ffmpeg"
       },
       {
         "from": "icon.ico",
@@ -55,12 +82,15 @@
     ],
     "asar": true,
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "artifactName": "Lunar-Setup-${version}.${ext}",
       "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
+      "license": "build/license.txt",
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
@@ -68,7 +98,9 @@
       "shortcutName": "Lunar"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.education",
       "artifactName": "Lunar-${version}.${ext}"
     },
@@ -76,7 +108,10 @@
       "title": "Lunar ${version}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Education",
       "artifactName": "Lunar-${version}.${ext}",
       "maintainer": "Kwasi Kwakye & Alex Nyanteng"
