@@ -28,6 +28,9 @@ hiddenimports = [
     "uvicorn.protocols", "uvicorn.protocols.http", "uvicorn.protocols.http.auto",
     "uvicorn.protocols.websockets", "uvicorn.protocols.websockets.auto",
     "uvicorn.lifespan", "uvicorn.lifespan.on",
+    # Release builds ship the licence check compiled (scripts/build_gate.py), and PyInstaller can't see inside a
+    # compiled module: name what backend/gate.py imports, so the check never depends on another file importing it.
+    "base64", "hashlib", "json", "winreg",
 ]
 
 # Collect everything (code, data files, native libs) for the tricky packages.
