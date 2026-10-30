@@ -115,6 +115,18 @@
       "category": "Education",
       "artifactName": "Lunar-${version}.${ext}",
       "maintainer": "Kwasi Kwakye & Alex Nyanteng"
+    },
+    "appx": {
+      "identityName": "BehemothGroup.MrSOLIS",
+      "publisher": "CN=74046C7E-54C1-4825-BA8C-244437F275D1",
+      "publisherDisplayName": "Behemoth Group",
+      "applicationId": "MrSOLIS",
+      "displayName": "MrSOLIS",
+      "backgroundColor": "#000000",
+      "languages": [
+        "en-US"
+      ],
+      "artifactName": "MrSOLIS-${version}.${ext}"
     }
   }
 }
