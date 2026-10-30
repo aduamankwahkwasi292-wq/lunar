@@ -71,7 +71,10 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "pytest"],
+    # torch & co. came in through onnxruntime's optional tools (2026-10-30: 430 MB of the 886 MB engine); MrSOLIS
+    # never imports them (OCR and voice run on onnxruntime itself).
+    excludes=["tkinter", "matplotlib", "pytest", "torch", "transformers", "tokenizers", "huggingface_hub",
+              "hf_xet", "safetensors", "onnx", "tensorboard", "tensorflow"],
     cipher=block_cipher,
     noarchive=False,
 )
