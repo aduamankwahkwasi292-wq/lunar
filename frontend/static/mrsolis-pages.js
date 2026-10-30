@@ -657,7 +657,7 @@ const GUIDE = [
     ['notes', 'Keep what matters', [
         'Press <b>Save</b> on any lesson or answer, or the bookmark after highlighting, to keep it in <b>Notes</b>.',
         'Notes holds a crib sheet for each deck, your saved parts and your own notes. Export them as a file.',
-        '<b>Find anything</b> at the top finds any word, idea or slide number in the lesson you have open.']],
+        '<b>Find anything</b> at the top finds any word or slide number in the lesson you have open.']],
     ['grid', 'Tools and commands', [
         '<b>Tools</b>: a scientific calculator, a step-by-step solver, a formula sheet and a study timer.',
         'Type <b>/calculator</b> in the chat box to put the calculator on the board.',
