@@ -37,6 +37,21 @@ Bump `version` in desktop/package.json first (`npm version 3.0.1 --no-git-tag-ve
 the release at that commit. Smart App Control (on, on this laptop) blocks the freshly built engine, so the installed
 build can't be run here: check the package contents instead, and test the code itself with the dev app.
 
+
+### The Microsoft Store package (MrSOLIS-x.y.z.appx)
+
+Identity is in desktop/package.json `build.appx` (from Partner Center → Product identity). electron-builder's own
+makeappx fails on this laptop ("side-by-side configuration is incorrect"), so pack with the Windows SDK's:
+
+```bash
+cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win appx --publish never   -c.electronDist=node_modules/electron/dist -c.directories.output=release-store   # stops at makeappx: expected
+```
+
+It leaves `release-store/__appx-x64/` with AppxManifest.xml and mapping.txt. In the manifest, set
+MaxVersionTested to 10.0.19041.0. Then run, in PowerShell:
+`& "C:\Program Files (x86)\Windows Kitsin.0.19041.0d\makeappx.exe" pack /o /f release-store\__appx-x64\mapping.txt /p release-store\MrSOLIS-x.y.z.appx`
+Upload that file in Partner Center (Microsoft signs it; the Store version updates through the Store, not GitHub).
+
 ---
 
 ## Lunar 1 (the original guide)

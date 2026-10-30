@@ -79,6 +79,10 @@ a = Analysis(
     noarchive=False,
 )
 
+# The Microsoft Store package format reserves the name "[Content_Types].xml", and python-docx's template source
+# folder has one (makeappx: 0x8007007b). MrSOLIS only reads Word files, so the folder stays out.
+a.datas = [d for d in a.datas if "default-docx-template" not in d[0].replace("\\", "/")]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(

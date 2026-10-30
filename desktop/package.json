@@ -1,7 +1,7 @@
 {
   "name": "lunar-desktop",
   "version": "3.0.0",
-  "description": "Lunar — your private, on-device AI study classroom.",
+  "description": "MrSOLIS — your study tutor, on your own computer.",
   "author": "Kwasi Kwakye & Alex Nyanteng",
   "license": "MIT",
   "main": "main.js",
