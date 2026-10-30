@@ -49,7 +49,7 @@ cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win appx 
 
 It leaves `release-store/__appx-x64/` with AppxManifest.xml and mapping.txt. In the manifest, set
 MaxVersionTested to 10.0.19041.0. Then run, in PowerShell:
-`& "C:\Program Files (x86)\Windows Kitsin.0.19041.0d\makeappx.exe" pack /o /f release-store\__appx-x64\mapping.txt /p release-store\MrSOLIS-x.y.z.appx`
+`& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\makeappx.exe" pack /o /f release-store\__appx-x64\mapping.txt /p release-store\MrSOLIS-x.y.z.appx`
 Upload that file in Partner Center (Microsoft signs it; the Store version updates through the Store, not GitHub).
 
 ---
