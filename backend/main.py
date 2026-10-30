@@ -1467,32 +1467,45 @@ async def _rule_questions(slides: list, count: int) -> list:
     return pool
 
 
+async def _write_one(quiz: dict, idx: int, k: int):
+    """One new question about slide idx, written once the student is close enough; None if the brain couldn't."""
+    cond = quiz["cond"]
+    while True:
+        async with cond:                                  # stay ahead, but never while an answer is marked
+            await cond.wait_for(lambda: len(quiz["questions"]) < quiz["answered"] + _QUIZ_AHEAD
+                                and not quiz["marking"])
+        before = [a for a in quiz["asked"] if a.get("slide") == idx] + \
+                 [q for q in quiz["questions"] if q["slide"] == idx]
+        job = quiz["writing"] = asyncio.create_task(quizgen.write(
+            quiz["texts"][idx], [b["q"] for b in before], k, [b.get("a", "") for b in before]))
+        try:
+            async with _interactive():
+                return await job
+        except asyncio.CancelledError:
+            if quiz.pop("preempted", False) and not quiz.get("ended"):
+                continue                                  # stopped so an answer could be marked: write it again
+            raise                                         # the quiz was ended
+        except Exception:
+            return None
+        finally:
+            quiz["writing"] = None
+
+
 async def _write_quiz(quiz: dict):
-    """Background: write the quiz's questions one by one, staying _QUIZ_AHEAD ahead of the student."""
+    """Background: write the quiz's questions one by one, staying _QUIZ_AHEAD ahead of the student. A slide that
+    gives no new question hands its turn to up to two other slides (least asked first), so the quiz keeps the
+    number of questions the student picked (2026-10-30: 5 picked, 2 slides failed, the quiz stopped at 3)."""
     cond = quiz["cond"]
     try:
         for k, idx in enumerate(quiz["plan"]):
-            while True:
-                async with cond:                          # stay ahead, but never while an answer is marked
-                    await cond.wait_for(lambda: len(quiz["questions"]) < quiz["answered"] + _QUIZ_AHEAD
-                                        and not quiz["marking"])
-                before = [a for a in quiz["asked"] if a.get("slide") == idx] + \
-                         [q for q in quiz["questions"] if q["slide"] == idx]
-                job = quiz["writing"] = asyncio.create_task(quizgen.write(
-                    quiz["texts"][idx], [b["q"] for b in before], k, [b.get("a", "") for b in before]))
-                try:
-                    async with _interactive():
-                        q = await job
-                    break
-                except asyncio.CancelledError:
-                    if quiz.pop("preempted", False) and not quiz.get("ended"):
-                        continue                          # stopped so an answer could be marked: write it again
-                    raise                                 # the quiz was ended
-                except Exception:
-                    q = None
-                    break
-                finally:
-                    quiz["writing"] = None
+            q = await _write_one(quiz, idx, k)
+            if not q:
+                seen = [x.get("slide") for x in quiz["asked"] + quiz["questions"]]
+                for alt in sorted((i for i in quiz["texts"] if i != idx), key=seen.count)[:2]:
+                    q = await _write_one(quiz, alt, k + 1)
+                    if q:
+                        idx = alt
+                        break
             async with cond:
                 if q:
                     quiz["questions"].append({**q, "slide": idx})
