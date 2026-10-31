@@ -333,7 +333,7 @@ PAGES.notes = async () => {
         } catch (e) { showToast(e.message); }
     };
     ACT.del = async (el) => {
-        if (!armed(el, icon('check'))) return;
+        if (!armed(el, 'Delete?')) return;               // a bare tick read as "nothing happened" (2026-10-31)
         try { await api(`/api/notes/${el.dataset.id}`, { method: 'DELETE' }); refresh(); } catch (e) { showToast(e.message); }
     };
     ACT.edit = (el) => {

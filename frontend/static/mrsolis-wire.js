@@ -940,19 +940,25 @@ function sendChat() {
 // ── Highlight → Explain / Solve ──────────────────────────────────────
 function hideSelTools() { selTools.hidden = true; }
 
-/** Place the Explain/Solve toolbar above (or below) a viewport rect. */
+/** Place the Explain/Solve toolbar above (or below) a viewport rect: beside the part of it you can see on the board,
+ *  and always on screen (a long highlight used to push it off the window). */
 function showSelToolsAt(rect) {
+    // with no slides open only Save to Notes applies: Explain and Solve are about a slide
+    $('cr-explain-btn').hidden = $('cr-solve-btn').hidden = !S.sessionId;
     selTools.hidden = false;
     const tw = selTools.offsetWidth || 150, th = selTools.offsetHeight || 38;
+    const view = board.getBoundingClientRect();
+    const seenTop = Math.max(rect.top, view.top), seenBottom = Math.min(rect.bottom, view.bottom);
     const left = Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8));
-    let top = rect.top - th - 8;
-    if (top < 80) top = rect.bottom + 8;
+    let top = seenTop - th - 8;
+    if (top < 80) top = seenBottom + 8;
+    top = Math.max(8, Math.min(top, window.innerHeight - th - 8));
     selTools.style.left = `${left}px`;
     selTools.style.top = `${top}px`;
 }
 
 function updateSelTools() {
-    if (!S.sessionId || S.busy) { hideSelTools(); return; }
+    if (S.busy) { hideSelTools(); return; }   // with no slides open, a highlight can still be saved to Notes
     const sel = window.getSelection();
     const text = sel && sel.toString ? sel.toString().trim() : '';
     if (!text || text.length < 2 || !sel.rangeCount || sel.isCollapsed) {

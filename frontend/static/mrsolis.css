@@ -398,7 +398,7 @@ button.tick:hover { background: #fff; width: 22px; }
     background: #000; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 12px;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
 }
-#cr-sel-tools[hidden] { display: none; }
+#cr-sel-tools[hidden], #cr-sel-tools [hidden] { display: none; }
 .sel-btn { padding: 7px 15px; border-radius: 9px; font-size: 13px; font-weight: 600; color: #fff; }
 .sel-btn:hover { background: rgba(255, 255, 255, 0.14); }
 .sel-solve { background: #fff; color: #000; }
@@ -718,6 +718,7 @@ body.focus .hint { display: none; }
 .note-tools button { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--board-dim); }
 .note-tools button:hover { background: rgba(0, 0, 0, 0.1); color: #000; }
 .note-tools .ico { width: 15px; height: 15px; }
+.note-tools button.armed { width: auto; padding: 0 10px; background: #b3261e; color: #fff; font-size: 12px; font-weight: 600; }
 .note-body { max-height: 340px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.25) transparent; }
 .note textarea { width: 100%; min-height: 120px; border: 1px solid rgba(0, 0, 0, 0.25); border-radius: 8px; background: rgba(255, 255, 255, 0.45); padding: 10px; font: inherit; color: #000; resize: vertical; outline: 0; }
 .cols { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; }
