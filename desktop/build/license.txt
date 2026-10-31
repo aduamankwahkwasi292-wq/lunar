@@ -15,7 +15,7 @@ Under 18? If you are under 18, a parent or guardian must agree to these terms fo
 
 2. YOUR LICENCE: WHAT YOU GET WHEN YOU BUY MRSOLIS
 
-1. Pay once, keep it. MrSOLIS costs US$1 (GHS 12 by Mobile Money), paid once. You get a personal licence to install and use it for as long as you like, for your own learning. You don't buy the software itself; we keep ownership of MrSOLIS and everything in it that we made.
+1. Pay once, keep it. MrSOLIS costs US$1 (GHS 12, by Mobile Money or card), paid once. You get a personal licence to install and use it for as long as you like, for your own learning. You don't buy the software itself; we keep ownership of MrSOLIS and everything in it that we made.
 2. One computer. Each licence is for one computer: the one you activate it on. It can't be moved to another computer.
 3. Activation and the daily check. Your licence code needs the internet once, to activate MrSOLIS on your computer. After that, MrSOLIS works fully offline. Once a day, when your computer is online, MrSOLIS checks with us that your licence is still active on that computer. If the licence was refunded, MrSOLIS stops and asks for a licence code. While your computer is offline, MrSOLIS keeps working and checks the next time it is online.
 4. Updates. Updates are free, including ones that bring new or improved brains (the AI models MrSOLIS thinks with). Installing them is your choice: you can always keep using what you have.

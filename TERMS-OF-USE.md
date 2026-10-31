@@ -23,7 +23,7 @@ your use of MrSOLIS.
 
 ## 2. Your licence: what you get when you buy MrSOLIS
 
-1. **Pay once, keep it.** MrSOLIS costs **US$1** (GHS 12 by Mobile Money), paid once. You get a personal licence to install and use it for as
+1. **Pay once, keep it.** MrSOLIS costs **US$1** (GHS 12, by Mobile Money or card), paid once. You get a personal licence to install and use it for as
    long as you like, for your own learning. You don't buy the software itself; we keep ownership of MrSOLIS and
    everything in it that we made.
 2. **One computer.** Each licence is for **one computer**: the one you activate it on. It can't be moved to
