@@ -34,8 +34,28 @@ gh release edit v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft=false    # on
 ```
 
 Bump `version` in desktop/package.json first (`npm version 3.0.1 --no-git-tag-version`), commit and push, and tag
-the release at that commit. Smart App Control (on, on this laptop) blocks the freshly built engine, so the installed
-build can't be run here: check the package contents instead, and test the code itself with the dev app.
+the release at that commit.
+
+### Before publishing: test the package, not the build
+
+A build that packs is not a build that works. 3.0.0 and 3.0.1 built, packed and uploaded fine and never opened for a
+new student (2026-11-03): every test had started the app from a terminal, with a brain already copied into the test
+profile, and the engine crashed or MrSOLIS waited for a brain the student could only download once it was open.
+Smart App Control is off on this laptop since 2026-10-30, so the built app runs here. Upload as a **draft**, and
+publish only when every stage passes:
+
+| Stage | Check | Pass |
+|---|---|---|
+| builds | PyInstaller and electron-builder (above) | both finish |
+| the code | `python -m backend.start_test` · `python -m backend.crib_test` | 3/3 · all right |
+| installer → first launch → engine → brain → answer | in `build\src`: `python scripts/smoke_packaged.py desktop/release/Lunar-Setup-x.y.z.exe --licence ..\test-profile\licence.json --brains ..\test-profile` | every stage PASS |
+| Store package | the same script with `--store` (next section) | PASS |
+| a real install | the installer on another PC (no Python, no tools), then open MrSOLIS from the desktop icon | MrSOLIS opens, picks a brain, answers |
+
+The script starts the app the way Windows does for a student (no console, a fresh profile with only a licence, no
+brain) and the engine on its own with no standard handles; the brain stages use the test profile's Speedy / Smarts.
+Copies stuck on a version that can't open never reach the update check (it runs once the engine is up), so a fix for
+a start-up failure also needs students to download the installer again from the website.
 
 
 ### The Microsoft Store package (MrSOLIS-x.y.z.appx)
@@ -50,7 +70,22 @@ cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win appx 
 It leaves `release-store/__appx-x64/` with AppxManifest.xml and mapping.txt. In the manifest, set
 MaxVersionTested to 10.0.19041.0. Then run, in PowerShell:
 `& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\makeappx.exe" pack /o /f release-store\__appx-x64\mapping.txt /p release-store\MrSOLIS-x.y.z.appx`
-Upload that file in Partner Center (Microsoft signs it; the Store version updates through the Store, not GitHub).
+Upload that file in Partner Center (Microsoft signs it; the Store version updates through the Store, not GitHub):
+a new submission with the new package, whose version must be higher than the last one sent.
+
+Test it first, inside its own package (Developer Mode is on, on this laptop), in PowerShell from `build\src\desktop`:
+
+```powershell
+$mk = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\makeappx.exe"
+$t = (Resolve-Path ..\..).Path + "\appx-test"
+& $mk unpack /p release-store\MrSOLIS-x.y.z.appx /d $t /o
+Add-AppxPackage -Register "$t\AppxManifest.xml"
+python ..\scripts\smoke_packaged.py "$t\app" --licence ..\..\test-profile\licence.json --store (Get-AppxPackage BehemothGroup.MrSOLIS).PackageFamilyName --store-exe "$t\app\Lunar.exe"
+Remove-AppxPackage (Get-AppxPackage BehemothGroup.MrSOLIS).PackageFullName
+```
+
+Never open that test package from the Start menu: without `--user-data-dir` it would use (and change) the real
+MrSOLIS profile in %APPDATA%\lunar-desktop.
 
 ---
 

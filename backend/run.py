@@ -79,9 +79,38 @@ def _quit_with_parent() -> None:
     threading.Thread(target=watch, daemon=True, name="lunar-parent-watch").start()
 
 
+def _keep_output(data_dir: str) -> None:
+    """The installed backend is a windowed program (no console). Started with nowhere to write — no pipes from the
+    desktop shell — Python leaves sys.stdout / sys.stderr as None, and uvicorn's log setup calls
+    sys.stdout.isatty(): the backend died before it served anything ("Unable to configure formatter 'default'",
+    reported by students, 2026-11-03). Write to MrSOLIS's engine log instead (<data>/logs/engine.log, where the
+    desktop shell also keeps what the backend says), or to nowhere."""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    stream = None
+    if data_dir:
+        try:
+            os.makedirs(os.path.join(data_dir, "logs"), exist_ok=True)
+            stream = open(os.path.join(data_dir, "logs", "engine.log"), "a", encoding="utf-8", errors="replace",
+                          buffering=1)
+        except OSError:
+            stream = None
+    if stream is None:
+        try:
+            stream = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            return                         # uvicorn is still told not to ask about colours (main); print() skips None
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+
+
 def main() -> None:
     _no_power_throttling()
     _quit_with_parent()
+    data_dir = os.environ.get("LUNAR_DATA_DIR") or ""
+    _keep_output(data_dir)
     try:
         from backend import gate
     except ModuleNotFoundError:
@@ -89,7 +118,6 @@ def main() -> None:
     # The installed backend serves only a licensed computer (backend/gate.py): started by hand without MrSOLIS's
     # licence it stops here, and it always listens on this computer only — never the network.
     frozen = bool(getattr(sys, "frozen", False))
-    data_dir = os.environ.get("LUNAR_DATA_DIR") or ""
     if gate.required() and not (data_dir and gate.licensed(data_dir)):
         if sys.stderr:                     # None when started by hand (no console in the installed app)
             sys.stderr.write("MrSOLIS isn't activated on this computer. Open MrSOLIS to activate it.\n")
@@ -102,7 +130,8 @@ def main() -> None:
 
     host = "127.0.0.1" if frozen else os.environ.get("LUNAR_HOST", "127.0.0.1")
     port = int(os.environ.get("LUNAR_PORT", "8000"))
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    # no colours: the output goes to a pipe or a log file, and asking a missing console about them crashed (above)
+    uvicorn.run(app, host=host, port=port, log_level="warning", use_colors=False)
 
 
 if __name__ == "__main__":

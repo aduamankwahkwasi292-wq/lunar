@@ -113,18 +113,40 @@ function httpGetJSON(url, timeoutMs = 2500) {
   });
 }
 
-async function waitForHealth(port, timeoutMs = 180000) {
+// Up = the backend answers. Whether a brain is ready is shown inside MrSOLIS (the status chip, and the brain chooser
+// on a first start). This used to wait for a ready brain, and a new install has none until the student downloads
+// one, so MrSOLIS 3.0.0–3.0.1 never opened for a new student: "did not start in time" (2026-11-03).
+async function waitForHealth(port, engine, timeoutMs = 180000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (engine.failed) throw new Error(engine.failed);
     try {
-      const h = await httpGetJSON(`http://127.0.0.1:${port}/api/health`);
-      if (h && h.ok) return true;
-      // Backend is up but the model isn't ready (missing GGUF) — surface it.
-      if (h && h.error) throw new Error(h.error);
+      await httpGetJSON(`http://127.0.0.1:${port}/api/health`, 10000);   // a slow PC answers late while it warms up
+      return true;
     } catch (_) { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error('The Lunar engine did not start in time.');
+}
+
+// What the backend says (its errors too) is kept in <userData>/logs/engine.log: MrSOLIS's windows have no console,
+// so on a student's computer it went nowhere. The backend writes there itself when it has no pipe (backend/run.py).
+function engineLogFile() {
+  return path.join(app.getPath('userData'), 'logs', 'engine.log');
+}
+
+function openEngineLog() {
+  const file = engineLogFile();
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (fs.existsSync(file) && fs.statSync(file).size > 1024 * 1024) fs.renameSync(file, file.replace(/\.log$/, '.old.log'));
+    const out = fs.createWriteStream(file, { flags: 'a' });
+    out.on('error', () => { /* a full disk must not stop MrSOLIS */ });
+    out.write(`\n---- MrSOLIS ${app.getVersion()} · ${new Date().toISOString()} ----\n`);
+    return out;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function startBackend() {
@@ -141,16 +163,31 @@ async function startBackend() {
     // auto = the bundled GGUFs via llama.cpp when present, else Ollama (dev machines)
     LUNAR_LLM_BACKEND: process.env.LUNAR_LLM_BACKEND || 'auto',
   };
-  backendProc = spawn(cmd, args, { cwd, env, windowsHide: true });
-  backendProc.stdout.on('data', (d) => process.stdout.write(`[backend] ${d}`));
-  backendProc.stderr.on('data', (d) => process.stderr.write(`[backend] ${d}`));
-  backendProc.on('exit', (code) => {
-    backendProc = null;
+  const log = openEngineLog();
+  const keep = (d) => { if (log) log.write(d); };
+  const engine = { failed: '' };
+  const proc = spawn(cmd, args, { cwd, env, windowsHide: true });
+  backendProc = proc;
+  proc.stdout.on('data', (d) => { process.stdout.write(`[backend] ${d}`); keep(d); });
+  proc.stderr.on('data', (d) => { process.stderr.write(`[backend] ${d}`); keep(d); });
+  // blocked or missing (security software, a damaged install): say so now, not after the wait
+  proc.on('error', (e) => {
+    engine.failed = `MrSOLIS couldn't start its engine (${e.message}).`;
+    keep(`[MrSOLIS] couldn't start the engine: ${e.message}\n`);
+  });
+  proc.on('exit', (code) => {
+    if (backendProc === proc) backendProc = null;
+    keep(`[MrSOLIS] the engine stopped (code ${code})\n`);
+    if (!mainWindow) {                                // still starting: the start-up error says it, once
+      engine.failed = engine.failed || `The Lunar engine stopped while starting (code ${code}).`;
+      return;
+    }
     if (code && code !== 0 && !app.isQuitting) {
       dialog.showErrorBox('Lunar', `The Lunar engine stopped unexpectedly (code ${code}).`);
     }
   });
-  await waitForHealth(backendPort);
+  proc.on('close', () => { if (log) log.end(); });
+  await waitForHealth(backendPort, engine);
   // our windows carry this launch's secret to the backend: a cookie sent only by its own pages, unreadable by scripts
   await session.defaultSession.cookies.set({ url: `http://127.0.0.1:${backendPort}`, name: 'mrsolis', value: BACKEND_TOKEN,
     httpOnly: true, sameSite: 'strict' });
@@ -482,7 +519,8 @@ if (!gotLock) {
       startLicenceChecks();
     } catch (err) {
       if (splash) { splash.destroy(); splash = null; }
-      dialog.showErrorBox('Lunar could not start', String(err && err.message || err));
+      dialog.showErrorBox('Lunar could not start',
+        `${String(err && err.message || err)}\n\nWhat the engine said is saved in:\n${engineLogFile()}`);
       app.quit();
     }
   });

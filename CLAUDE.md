@@ -309,6 +309,14 @@ answers a navigation question without opening `script.js` (≈2,800 lines) or `c
   RELEASE.md "Building on this laptop". The installer is Windows-only and no longer carries Lunar 1's built-in
   GGUFs (`models/**/*.gguf`): `local_llm`'s in-process llama.cpp ("Classic", and embeddings for "Find anything" by
   meaning) only runs in dev when llama-cpp-python and the GGUFs are present. Every embedding call already falls back.
+- **A release is tested as a student meets it** (2026-11-03): 3.0.0 and 3.0.1 never opened for a new student. The
+  desktop shell waited for a ready brain, and a new install has none until the student downloads one inside MrSOLIS;
+  and the engine, a windowed program, crashed in uvicorn's log setup when started without standard handles. Neither
+  showed in tests started from a terminal with brains copied into the profile. Now: the shell opens MrSOLIS once the
+  engine answers at all (brain state is the app's business: status chip, first-start chooser), the installed
+  `/api/health` never asks Ollama, `backend/run.py` gives a stream-less engine `<data>/logs/engine.log`, and the shell
+  keeps the engine's output there too. Before publishing: `python -m backend.start_test` and
+  `scripts/smoke_packaged.py` on the installer (and the Store package) must pass, every stage (RELEASE.md).
 
 ## Licences & credits, and the runtime in releases (2026-10-25)
 - **Settings → About** names the engines (CUSTOM-Mx, CUSTOM-Kx) and has a **Licences & credits** button. It opens

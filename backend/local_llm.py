@@ -20,6 +20,7 @@ Default is "auto".
 
 import os
 import re
+import sys
 import json
 import glob
 import asyncio
@@ -518,6 +519,11 @@ async def health() -> dict:
         info["ok"] = bool(chat_path)
         if not chat_path:
             info["error"] = f"No chat GGUF found in {MODEL_DIR}."
+        return info
+    if getattr(sys, "frozen", False):
+        # The installed app has no Ollama (dev machines only): a new install has no brain until the student downloads
+        # one, so say that, at once. Asking Ollama took seconds and answered "All connection attempts failed".
+        info["error"] = "No brain is downloaded yet. Pick one in Settings → Brain."
         return info
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
