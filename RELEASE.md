@@ -21,7 +21,7 @@ B=/c/Users/aduam/Downloads/lunar/build/src
 git clone -q . "$B"                                    # the committed code only
 cp -r models/voice "$B/models/"; cp -r runtime/llama.cpp runtime/ffmpeg "$B/runtime/"
 cmd //c mklink /J "$(cygpath -w "$B/desktop/node_modules")" "$(cygpath -w "$PWD/desktop/node_modules")"
-cd "$B" && python scripts/build_gate.py --release && pyinstaller lunar-backend.spec --noconfirm
+cd "$B" && python scripts/build_gate.py --release && python -m PyInstaller lunar-backend.spec --noconfirm
 cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win --publish never
 ```
 
@@ -80,7 +80,7 @@ $mk = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\makeappx.exe"
 $t = (Resolve-Path ..\..).Path + "\appx-test"
 & $mk unpack /p release-store\MrSOLIS-x.y.z.appx /d $t /o
 Add-AppxPackage -Register "$t\AppxManifest.xml"
-python ..\scripts\smoke_packaged.py "$t\app" --licence ..\..\test-profile\licence.json --store (Get-AppxPackage BehemothGroup.MrSOLIS).PackageFamilyName --store-exe "$t\app\Lunar.exe"
+python ..\scripts\smoke_packaged.py "$t\app" --licence ..\..\test-profile\licence.json --store (Get-AppxPackage BehemothGroup.MrSOLIS).PackageFamilyName --store-exe "$t\app\Lunar.exe" --work ..\..\smoke-work
 Remove-AppxPackage (Get-AppxPackage BehemothGroup.MrSOLIS).PackageFullName
 ```
 

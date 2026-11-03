@@ -124,9 +124,12 @@ def clean_env(extra):
     return env
 
 
+WORK = tempfile.gettempdir()          # --work: where throwaway profiles go
+
+
 def profile(licence, brains_from=""):
     """A throwaway profile with this computer's licence and, if asked, the brains linked in."""
-    prof = tempfile.mkdtemp(prefix="mrsolis-smoke-")
+    prof = tempfile.mkdtemp(prefix="mrsolis-smoke-", dir=WORK)
     shutil.copy(licence, os.path.join(prof, "licence.json"))
     if brains_from:
         subprocess.run(["cmd", "/c", "mklink", "/J", os.path.join(prof, "brains"), os.path.join(brains_from, "brains")],
@@ -211,8 +214,8 @@ def stage_engine(app_dir, licence):
 def launch(exe, prof, store_pfn=""):
     """Start Lunar.exe the way a student's Windows does; returns the root PID."""
     if not store_pfn:
-        return subprocess.Popen([exe, f"--user-data-dir={prof}"], cwd=os.path.dirname(exe), startupinfo=no_handles(),
-                                close_fds=True).pid
+        return subprocess.Popen([exe, f"--user-data-dir={prof}"], cwd=os.path.dirname(exe), env=clean_env({}),
+                                startupinfo=no_handles(), close_fds=True).pid
     before = set(processes())
     subprocess.run(["powershell", "-NoProfile", "-Command",
                     f"Invoke-CommandInDesktopPackage -PackageFamilyName '{store_pfn}' -AppId MrSOLIS "
@@ -293,7 +296,13 @@ def main() -> int:
     ap.add_argument("--brains", default="", help="a profile folder whose brains/ holds downloaded brains")
     ap.add_argument("--store", default="", help="PackageFamilyName of the registered Store package")
     ap.add_argument("--store-exe", default="", help="app\\Lunar.exe inside that registered package's folder")
+    ap.add_argument("--work", default="", help="where throwaway profiles go (default: TEMP). For --store use a folder "
+                    "outside AppData: a packaged app's writes under AppData may land in its own private copy")
     a = ap.parse_args()
+    global WORK
+    if a.work:
+        os.makedirs(a.work, exist_ok=True)
+        WORK = a.work
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # the engine's messages have "→" in them
     results, work = [], ""
     app_dir = a.package
