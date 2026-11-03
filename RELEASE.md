@@ -22,8 +22,13 @@ git clone -q . "$B"                                    # the committed code only
 cp -r models/voice "$B/models/"; cp -r runtime/llama.cpp runtime/ffmpeg "$B/runtime/"
 cmd //c mklink /J "$(cygpath -w "$B/desktop/node_modules")" "$(cygpath -w "$PWD/desktop/node_modules")"
 cd "$B" && python scripts/build_gate.py --release && python -m PyInstaller lunar-backend.spec --noconfirm
-cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win --publish never
+cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win nsis --publish never -c.electronDist=node_modules/electron/dist
 ```
+
+`-c.electronDist` matters: MrSOLIS ships the Electron in `desktop/node_modules/electron/dist`, which is **32.3.3**
+(its `dist/version`; the dev app runs on it too) although package.json says `^31.7.6`. Without it electron-builder
+downloads 31.7.7 (111 MB) and the app would run on a runtime nobody tested (happened 2026-11-03, caught by
+`check_build.py`: "Lunar.exe is Electron's own").
 
 Then check `desktop/release/` (the installer, its `.blockmap`, `latest.yml`) and publish them:
 

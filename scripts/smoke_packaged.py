@@ -9,7 +9,7 @@ checks the exact files the installer lays down, started the way Windows starts t
   3. first launch              Lunar.exe started like the Start menu does (no console, no handles), a fresh profile
                                with only a licence, no brain: the MrSOLIS window opens, no error box
   4. brain loads    (--brains) the engine loads a downloaded brain (Speedy / Smarts)
-  5. answers        (--brains) a real question gets a real answer from it
+  5. answers        (--brains) a real question gets a real answer from it, and nothing it does goes online
   6. Store package  (--store)  the same first launch inside the registered Microsoft Store package
 
     python scripts/smoke_packaged.py desktop/release/Lunar-Setup-3.0.2.exe --licence ..\\build\\test-profile\\licence.json --brains ..\\build\\test-profile
@@ -262,10 +262,34 @@ def stage_first_launch(exe, licence, store_pfn=""):
         drop_profile(prof)
 
 
+class Outside:
+    """Every connection the engine (and the brain server it starts) makes that leaves this computer, sampled twice
+    a second. MrSOLIS works offline: loading a brain and answering must never need the internet."""
+
+    def __init__(self, root):
+        import threading
+        self.root, self.seen, self.stop = root, set(), threading.Event()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        while not self.stop.is_set():
+            pids = set(tree(self.root))
+            out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True).stdout
+            for line in out.splitlines():
+                parts = line.split()
+                if len(parts) >= 4 and parts[0] in ("TCP", "UDP") and parts[-1].isdigit() and int(parts[-1]) in pids:
+                    remote = parts[2]
+                    host = remote.rsplit(":", 1)[0]
+                    if host not in ("127.0.0.1", "0.0.0.0", "[::1]", "[::]", "*"):
+                        self.seen.add(remote)
+            self.stop.wait(0.5)
+
+
 def stage_brain(app_dir, licence, brains_from):
-    """Returns (load problem, answer problem): the brain loads, then answers a real question."""
+    """Returns (load problem, answer problem): the brain loads, then answers a real question, offline."""
     prof = profile(licence, brains_from)
     proc, port = start_engine(app_dir, prof)
+    outside = Outside(proc.pid)
     try:
         t0 = time.time()
         h, problem = wait_health(proc, port, 300, lambda h: h.get("brain_state") in ("ready", "error"))
@@ -282,8 +306,11 @@ def stage_brain(app_dir, licence, brains_from):
                 return loaded, f"error: {msg['error']}"
         if not done or "56" not in text:
             return loaded, f"no proper answer: {text[:200]!r}"
-        return loaded, f"answered in {time.time() - t1:.0f} s: {text.strip()[:120]!r}"
+        if outside.seen:
+            return loaded, f"answered, but went online: {sorted(outside.seen)}"
+        return loaded, f"answered in {time.time() - t1:.0f} s, nothing online: {text.strip()[:120]!r}"
     finally:
+        outside.stop.set()
         kill_tree(proc.pid)
         time.sleep(1)
         drop_profile(prof)
@@ -326,7 +353,7 @@ def main() -> int:
                 print("4-5. brain loads and answers ...", flush=True)
                 loaded, answered = stage_brain(app_dir, a.licence, a.brains)
                 results.append(("brain loads", "ready in" in loaded, loaded))
-                results.append(("answers a question", answered.startswith("answered"), answered))
+                results.append(("answers a question, offline", answered.startswith("answered in"), answered))
         if a.store:
             print("6. Store package, first launch ...", flush=True)
             r = stage_first_launch(a.store_exe, a.licence, a.store)
