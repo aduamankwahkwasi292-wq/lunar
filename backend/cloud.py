@@ -61,8 +61,11 @@ PROVIDERS = {
                "keys": "https://build.nvidia.com", "sees": False, "effort": False,
                "prefer": ["meta/llama-3.3-70b-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5",
                           "deepseek-ai/deepseek-v3.1"]},
+    # "calm": the reasoning_effort when the student hasn't pressed Think. "none" for servers on the student's own
+    # computer (LM Studio, Ollama…): Gemma 4 E4B in LM Studio thinks silently by default — its first words came after
+    # 16–32 s, with "none" after 1.2 s (2026-11-11). A server that refuses it gets it dropped (_adapt).
     "custom": {"name": "Other (OpenAI-compatible)", "short": "your server", "kind": "openai", "base": "",
-               "keys": "", "sees": False, "effort": False, "prefer": []},
+               "keys": "", "sees": False, "effort": True, "calm": "none", "prefer": []},
 }
 ORDER = ["deepseek", "openai", "chatgpt", "anthropic", "gemini", "nvidia", "custom"]
 
@@ -534,7 +537,7 @@ async def _oa_stream(pid, model_id, messages, temperature, limit, info, json_mod
         if temperature is not None and "notemp" not in quirks:
             p["temperature"] = temperature
         if PROVIDERS[pid]["effort"] and "noeffort" not in quirks:
-            p["reasoning_effort"] = "medium" if think else "low"
+            p["reasoning_effort"] = "medium" if think else PROVIDERS[pid].get("calm", "low")
         if think and pid in ("nvidia", "custom") and "nokwargs" not in quirks:
             p["chat_template_kwargs"] = {"enable_thinking": True}     # Qwen3-style models on vLLM / NIM
         if schema and "noschema" not in quirks:
