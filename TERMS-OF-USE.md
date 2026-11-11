@@ -26,8 +26,8 @@ your use of MrSOLIS.
 1. **Pay once, keep it.** MrSOLIS costs **US$1** (GHS 12, by Mobile Money or card), paid once. You get a personal licence to install and use it for as
    long as you like, for your own learning. You don't buy the software itself; we keep ownership of MrSOLIS and
    everything in it that we made.
-2. **One computer.** Each licence is for **one computer**: the one you activate it on. It can't be moved to
-   another computer.
+2. **One computer and one phone.** Each licence is for **one computer and one phone**: the ones you activate it
+   on (MrSOLIS for phones uses the same licence code). It can't be moved to another computer or phone.
 3. **Activation and the daily check.** Your licence code needs the internet **once**, to activate MrSOLIS on your
    computer. After that, MrSOLIS works fully offline. Once a day, when your computer is online, MrSOLIS checks
    with us that your licence is still active on that computer. If the licence was refunded, MrSOLIS stops and
@@ -121,9 +121,9 @@ If you break this section we may end your licence (section 9).
 ## 6. Your material and your privacy
 
 1. **It stays on your computer.** Your slides, notes, photos, videos, recordings, questions and study history are
-   read and processed **on your computer**. We don't collect them, upload them or see them. MrSOLIS has no account,
-   no adverts and no tracking or analytics.
-2. **The microphone** is used only while you use Mic or Live. What you say is turned into text on your computer
+   read and processed **on your computer**, unless you turn on an online brain (section 6.6). We don't collect them,
+   upload them or see them. MrSOLIS has no account, no adverts and no tracking or analytics.
+2. **The microphone** is used only while you use Mic, or raise your hand in Interactive mode. What you say is turned into text on your computer
    and is not recorded or sent anywhere.
 3. **Your material, your responsibility.** Only load material you have the right to use — for example your
    lecturer's slides, for your own study.
@@ -134,7 +134,8 @@ If you break this section we may end your licence (section 9).
    - **to download a brain**, only when you choose one in Settings (from GitHub and Hugging Face);
    - **to activate your licence**, once, and **to check it once a day** when your computer is online
      (section 2.3);
-   - **to pay**, when you buy MrSOLIS.
+   - **to pay**, when you buy MrSOLIS;
+   - **to think with your online brain**, only if you turn one on (section 6.6).
 
    These connections send only what any download sends (such as your computer's internet address and the app's
    version), never your study material. Activating and checking your licence also sends your licence code and a
@@ -147,6 +148,21 @@ If you break this section we may end your licence (section 9).
    card or Mobile Money PIN. The services these connections reach have their own privacy terms.
 5. **Removing everything.** Uninstall MrSOLIS and delete its data folder
    (`%APPDATA%\lunar-desktop` on Windows) to remove your study material and history from the computer.
+6. **An online brain (your own AI account).** MrSOLIS is offline-first: it thinks with a brain on your computer. In
+   Settings → Brain you may instead turn on an **online brain**: an AI company you choose (such as DeepSeek, OpenAI,
+   Anthropic, Google or NVIDIA, or another server you name), used with **your own API key and account**. While it is
+   on:
+   - what MrSOLIS needs for each answer — your questions, the words of the slides you study and, if the model can
+     see, their pictures and video frames, with MrSOLIS's teaching instructions — goes **straight from your computer
+     to that company**. It does not pass through us, and we don't see or keep it;
+   - **that company's terms, prices, privacy policy and rules apply**, and any charges are between you and it;
+   - MrSOLIS keeps your key on your computer, locked to your Windows account, and sends it **only** to the company
+     it belongs to. Remove it in Settings → Brain at any time;
+   - without internet, or if the company can't answer, MrSOLIS uses the brain on your computer (when you have one).
+
+   We don't run or control these companies and can't promise their service. Like any AI, an online brain can be
+   wrong (section 5.1). ChatGPT and Claude subscription plans can't be used: their makers don't allow it for apps
+   like MrSOLIS, so you need an API key.
 
 ## 7. Payment and refunds
 

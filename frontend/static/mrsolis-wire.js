@@ -13,7 +13,7 @@
 
 const $ = (id) => document.getElementById(id);
 const boardFrame = $('board');          // the whole board (frame + surface + ladder)
-const board = $('cr-board');            // the scrolling writing area on the silver surface
+const board = $('cr-board');            // the slide viewer in the middle (it scrolls when a slide is taller)
 const boardContent = $('board-content');
 const chatInput = $('chat-input');
 const searchInput = $('search-input');
@@ -69,9 +69,9 @@ function showToast(msg, ms = 2600) {
 }
 
 /** POST json and call onObject for every NDJSON line. Errors thrown by onObject propagate. */
-async function streamNDJSON(url, body, onObject, signal) {
+async function streamNDJSON(url, body, onObject, signal, headers = {}) {
     const res = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify(body), signal,
     });
     if (!res.ok || !res.body) {
@@ -210,11 +210,13 @@ function plainText(md) {
 // ══════════════════════════════════════════════════════════════════════
 //   BOARD
 // ══════════════════════════════════════════════════════════════════════
-// #board-content = the slide (rendered once per slide) + the talk under it
-// (lesson, questions, answers — re-rendered while streaming).
-boardContent.innerHTML = '<div id="slide-area"></div><div id="talk-area"></div>';
+// The slide sits in the middle (#board-content → #slide-area, rendered once per slide); the talk — lessons,
+// questions, answers, re-rendered while streaming — is in the panel on the right (#talk-area in #talk-scroll),
+// with the typing bar under it (layout of 2026-11-11).
+boardContent.innerHTML = '<div id="slide-area"></div>';
 const slideArea = $('slide-area');
 const talkArea = $('talk-area');
+const talkScroll = $('talk-scroll');
 
 const thinking = (what = 'MrSOLIS is thinking…') => `<div class="cr-thinking"><i></i><i></i><i></i> <span>${what}</span></div>`;
 const THINKING = thinking();
@@ -227,7 +229,7 @@ function showBoard(on) {
 
 // The hint and the chat box say what to do: with no slides open, keep asking for them.
 const HINT_LESSON = 'Highlight any part of the slide or this lesson, then tap <b>Explain</b> for a closer look — or <b>Solve</b> if it\'s a question.';
-const HINT_NO_SLIDES = 'No slides yet? Drop your lecture slides or notes on the board (or press <b>+</b>) and MrSOLIS will teach them — or just ask anything below.';
+const HINT_NO_SLIDES = 'No slides yet? Drop your lecture slides or notes in the middle (or press <b>+</b>) and MrSOLIS will teach them here — or just ask anything below.';
 function chatPlaceholder() {
     if (typeof VID !== 'undefined' && VID.id) return 'Ask about this video — e.g. “Summarise it” or “What did he say about…?”';
     return S.sessionId ? 'Ask MrSOLIS 3 anything about this lesson...' : 'Ask MrSOLIS anything — or upload your slides to start learning...';
@@ -238,10 +240,78 @@ function lessonUi() {
     if (!mic.classList.contains('on') && !mic.classList.contains('starting')) chatInput.placeholder = chatPlaceholder();
 }
 
-// The slide always fits on the surface with a line to spare for "MrSOLIS is thinking…".
+// The slide always fits the viewer whole (its padding is 16 px top and bottom).
 new ResizeObserver(() => {
-    board.style.setProperty('--slide-max', `${Math.max(160, board.clientHeight - 52 - 34)}px`);
+    board.style.setProperty('--slide-max', `${Math.max(160, board.clientHeight - 34)}px`);
+    if (S.zoom !== 1) applyZoom();                    // the zoom is a share of the fitted size: size it again
 }).observe(board);
+
+// ── Zoom on the slide (the user, 2026-11-11) ─────────────────────────
+// 100% = the slide fitted to the viewer. A picture slide gets a width; a words-only slide (.cr-sheet) gets CSS zoom,
+// so its text grows and wraps. Box-select keeps working: it measures the picture as it is on screen.
+const ZOOM_STEPS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4];
+S.zoom = 1;
+const zoomBar = $('zoom-bar');
+
+/** Size the slide for S.zoom. `fresh`: a new slide — start at its top, centred. */
+function applyZoom(fresh) {
+    const img = slideArea.querySelector('.cr-slide-img');
+    const sheet = slideArea.querySelector('.cr-sheet');
+    zoomBar.hidden = !(img || sheet);
+    $('zoom-level').textContent = `${Math.round(S.zoom * 100)}%`;
+    $('zoom-out').disabled = S.zoom <= ZOOM_STEPS[0];
+    $('zoom-in').disabled = S.zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1];
+    board.classList.toggle('zoomed', S.zoom !== 1);
+    if (img) {
+        img.style.width = img.style.maxWidth = img.style.maxHeight = '';
+        if (S.zoom !== 1) {
+            const fit = img.getBoundingClientRect().width;            // its fitted width, as the CSS lays it out
+            if (!fit) { img.decode().then(() => applyZoom(fresh)).catch(() => {}); return; }
+            img.style.maxWidth = img.style.maxHeight = 'none';
+            img.style.width = `${Math.round(fit * S.zoom)}px`;
+        }
+    }
+    if (sheet) sheet.style.zoom = S.zoom === 1 ? '' : String(S.zoom);
+    if (fresh) {
+        board.scrollTop = 0;
+        board.scrollLeft = Math.max(0, (board.scrollWidth - board.clientWidth) / 2);
+    }
+}
+
+/** Zoom to `z`, keeping the point under (x, y) — the pointer, or the viewer's centre — where it is. */
+function setZoom(z, x, y) {
+    z = Math.min(ZOOM_STEPS[ZOOM_STEPS.length - 1], Math.max(ZOOM_STEPS[0], z));
+    if (Math.abs(z - 1) < 0.03) z = 1;                                  // land on "fit" when passing it
+    z = Math.round(z * 100) / 100;
+    if (z === S.zoom || zoomBar.hidden) return;
+    const r = board.getBoundingClientRect();
+    const px = (x ?? r.left + r.width / 2) - r.left, py = (y ?? r.top + r.height / 2) - r.top;
+    const fx = (board.scrollLeft + px) / Math.max(1, board.scrollWidth);
+    const fy = (board.scrollTop + py) / Math.max(1, board.scrollHeight);
+    S.zoom = z;
+    applyZoom();
+    board.scrollLeft = fx * board.scrollWidth - px;
+    board.scrollTop = fy * board.scrollHeight - py;
+    hideSelTools(); clearMarquee();
+}
+
+/** The next step in or out (Ctrl +, Ctrl −, the buttons). */
+function zoomStep(dir) {
+    const next = dir > 0 ? ZOOM_STEPS.find((s) => s > S.zoom + 0.001) : [...ZOOM_STEPS].reverse().find((s) => s < S.zoom - 0.001);
+    if (next) setZoom(next);
+}
+
+$('zoom-in').addEventListener('click', () => zoomStep(1));
+$('zoom-out').addEventListener('click', () => zoomStep(-1));
+$('zoom-level').addEventListener('click', () => setZoom(1));
+// Ctrl + wheel, and a trackpad pinch (which arrives as Ctrl + wheel): zoom the slide, not the whole window
+board.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey || zoomBar.hidden) return;
+    e.preventDefault();
+    setZoom(S.zoom * Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+}, { passive: false });
+// every new slide (or an empty board) goes through #slide-area: size it at the deck's zoom
+new MutationObserver(() => applyZoom(true)).observe(slideArea, { childList: true });
 
 function partHTML(p) {
     const live = S.busy && p === S.streamPart;
@@ -264,7 +334,7 @@ function partHTML(p) {
         ? `<div class="part-start"><button type="button" class="primary" data-start="upload"><svg class="ico"><use href="#i-upload"/></svg>Upload slides</button>` +
           `<button type="button" data-start="uploads"><svg class="ico"><use href="#i-folder"/></svg>Open a past upload</button></div>`
         : '';
-    // Read aloud (mrsolis-voice.js): the same voice as Live; pressing it again stops
+    // Read aloud (mrsolis-voice.js); pressing it again stops
     const reading = typeof READ !== 'undefined' && READ.part === p;
     const readBtn = !live && typeof VOICE !== 'undefined' && VOICE.speak
         ? `<button type="button" class="${reading ? 'on' : ''}" data-read="${S.parts.indexOf(p)}">` +
@@ -317,13 +387,13 @@ async function saveNote(text, kind, part) {
 let renderTimer = null;
 function renderTalk(follow = false) {
     clearTimeout(renderTimer); renderTimer = null;
-    const nearBottom = board.scrollHeight - board.scrollTop - board.clientHeight < 60;
+    const nearBottom = talkScroll.scrollHeight - talkScroll.scrollTop - talkScroll.clientHeight < 60;
     // what was being read aloud has left the board (new slide, cleared…): stop reading it
     if (typeof READ !== 'undefined' && READ.part && !S.parts.includes(READ.part)) stopReading();
     talkArea.innerHTML = S.parts.map(partHTML).join('');
     updateEject();
     // follow the writing, but don't yank the student back if they scrolled up to read
-    if (follow || nearBottom) board.scrollTop = board.scrollHeight;
+    if (follow || nearBottom) talkScroll.scrollTop = talkScroll.scrollHeight;
 }
 // Coalesce token renders to ~16 fps (re-formatting the whole text per token would lag).
 function renderTalkSoon() {
@@ -382,9 +452,9 @@ async function showSlide(payload, gen) {
         slideArea.innerHTML = '<div class="cr-empty">This slide has no teachable content (it looks like a title, names or references). Press → to continue.</div>';
         return;
     }
-    slideArea.innerHTML = blocks.map((b) =>
+    slideArea.innerHTML = '<div class="cr-sheet">' + blocks.map((b) =>
         b.type === 'text' ? `<div class="slide-text">${formatLecture(b.text)}</div>` : mediaHTML(b)
-    ).join('') + linksHTML(payload.links);
+    ).join('') + linksHTML(payload.links) + '</div>';
     board.scrollTop = 0;
 }
 
@@ -413,7 +483,6 @@ function updateProgress() {
 function ejectBoard() {
     if (!S.active && !S.parts.length) return;
     const name = S.sessionId ? (S.filename || 'Your lesson').replace(/\.[^.]+$/, '') : '';
-    if (typeof stopLive === 'function') stopLive();
     if (typeof closeBoardCalc === 'function') closeBoardCalc();
     closeLesson();
     showToast(name ? `Board cleared — “${name}” is still in Uploads, ready where you left off` : 'Board cleared', 3800);
@@ -458,6 +527,7 @@ function setBusy(on) {
 function setStatus(kind, label) {
     $('status-dot').className = kind;
     $('status-text').textContent = label;
+    $('status-text').title = label;
 }
 
 let wasOffline = false;
@@ -466,13 +536,29 @@ async function checkHealth() {
         const res = await fetch('/api/health', { cache: 'no-store' });
         const h = await res.json();
         if (typeof setCanSee === 'function') setCanSee(h.ok && h.sees);
+        setThinkCan(!!(h.ok && h.online));
+        // "Using ChatGPT plan · Manage usage" by the chat box; "Manage usage" first when the plan's limit is reached
+        const planOn = !!(h.ok && h.online && h.provider === 'chatgpt');
+        const limit = planOn && h.code === 'subscription_sharing_usage_limit_exceeded';
+        $('plan-badge').hidden = !planOn;
+        $('plan-badge').classList.toggle('limit', limit);
+        $('plan-badge-text').textContent = limit ? 'Your ChatGPT plan has reached its limit for MrSOLIS' : 'Using ChatGPT plan';
         if (h.ok && h.brain_state === 'starting') {          // loading the brain: look again soon
             setStatus('starting', `Loading ${h.chat_model || 'brain'}…`);
             wasOffline = false;
             setTimeout(checkHealth, 2000);
             return;
         }
-        if (h.ok) { setStatus('online', h.backend === 'brain' && h.chat_model ? `Online · ${h.chat_model}` : 'Online'); wasOffline = false; return; }
+        if (h.ok) {
+            setStatus('online', h.backend === 'brain' && h.chat_model ? `Online · ${h.chat_model}` : 'Online');
+            // the online brain couldn't answer (no internet, no credit): say once that this computer's brain took over
+            if (h.online && h.fallback && !checkHealth.saidFallback) {
+                checkHealth.saidFallback = true;
+                showToast(`${h.chat_model} couldn't answer${h.last_error ? ` (${h.last_error})` : ''} — the brain on this computer answered instead`, 6000);
+            } else if (!h.fallback) checkHealth.saidFallback = false;
+            wasOffline = false;
+            return;
+        }
         setStatus('offline', 'Offline');
         if (!wasOffline) showToast(h.error ? `AI engine offline: ${h.error}` : 'The AI engine is offline', 5000);
     } catch (e) {
@@ -535,6 +621,7 @@ async function upload(file, path = null) {
 }
 
 async function startLesson(sessionId, filename, at = 0, seenBefore = []) {
+    S.zoom = 1;                                       // a new deck starts fitted
     S.sessionId = sessionId;
     S.filename = filename || '';
     S.active = true;
@@ -641,8 +728,6 @@ function prevSlide() {
 
 /** Leave the lesson and go back to the empty board. */
 function closeLesson() {
-    // Live talks about the open lesson; with none open (chatting before uploading) it carries on into the new one
-    if (S.sessionId && typeof stopLive === 'function') stopLive();
     if (S.abort) { try { S.abort.abort(); } catch (e) { /* done */ } }
     S.gen++;
     Object.assign(S, {
@@ -682,7 +767,6 @@ async function ask(kind, text, image = null, video = null) {
     const free = !S.sessionId;
     if (free && kind !== 'chat') { showToast('Upload your slides first — drop a file on the board'); return; }
     if (S.busy) { showToast('MrSOLIS is still writing — press Esc to stop'); return; }
-    if (free) { showBoard(true); slideArea.innerHTML = ''; }
     hideSelTools();
     clearMarquee();
     try { window.getSelection().removeAllRanges(); } catch (e) { /* none */ }
@@ -711,7 +795,7 @@ async function ask(kind, text, image = null, video = null) {
             else if (msg.exact) { reply.exact = msg.exact; renderTalkSoon(); }      // a word problem: check, then Run
             else if (msg.looking && !reply.looking) { reply.looking = true; renderTalk(); }
             else if (msg.error) throw new Error(msg.error);
-        }, ctrl.signal);
+        }, ctrl.signal, THINK.on && THINK.can ? { 'x-mrsolis-think': '1' } : {});
     } catch (e) {
         if (gen !== S.gen) return;
         if (!(e.name === 'AbortError' && S.stopped) && !reply.text.trim()) {
@@ -841,7 +925,6 @@ function openFound(f) {
  *  (backend/mathengine/command.py). The answer lands in the chat like any other. */
 async function mxCommand(text) {
     if (S.busy) { showToast('MrSOLIS is still writing — press Esc to stop'); return; }
-    if (!S.sessionId) { showBoard(true); slideArea.innerHTML = ''; }
     S.parts.push({ kind: 'user', text: `/CUSTOM-Mx ${text}` });
     const reply = { kind: 'assistant', text: '' };
     S.parts.push(reply);
@@ -940,14 +1023,14 @@ function sendChat() {
 // ── Highlight → Explain / Solve ──────────────────────────────────────
 function hideSelTools() { selTools.hidden = true; }
 
-/** Place the Explain/Solve toolbar above (or below) a viewport rect: beside the part of it you can see on the board,
- *  and always on screen (a long highlight used to push it off the window). */
-function showSelToolsAt(rect) {
+/** Place the Explain/Solve toolbar above (or below) a viewport rect: beside the part of it you can see in its pane
+ *  (the slide viewer, or MrSOLIS's panel on the right), and always on screen (a long highlight used to push it off). */
+function showSelToolsAt(rect, pane = board) {
     // with no slides open only Save to Notes applies: Explain and Solve are about a slide
     $('cr-explain-btn').hidden = $('cr-solve-btn').hidden = !S.sessionId;
     selTools.hidden = false;
     const tw = selTools.offsetWidth || 150, th = selTools.offsetHeight || 38;
-    const view = board.getBoundingClientRect();
+    const view = pane.getBoundingClientRect();
     const seenTop = Math.max(rect.top, view.top), seenBottom = Math.min(rect.bottom, view.bottom);
     const left = Math.max(8, Math.min(rect.left + rect.width / 2 - tw / 2, window.innerWidth - tw - 8));
     let top = seenTop - th - 8;
@@ -966,10 +1049,11 @@ function updateSelTools() {
         return;
     }
     const range = sel.getRangeAt(0);
-    if (!board.contains(range.commonAncestorContainer)) { if (!S.marquee) hideSelTools(); return; }
+    const where = range.commonAncestorContainer;          // the slide in the middle, or the talk on the right
+    if (!board.contains(where) && !talkScroll.contains(where)) { if (!S.marquee) hideSelTools(); return; }
     clearMarquee();
     S.lastSelection = text;
-    showSelToolsAt(range.getBoundingClientRect());
+    showSelToolsAt(range.getBoundingClientRect(), talkScroll.contains(where) ? talkScroll : board);
 }
 
 // Box-select on a PDF slide image: drag a rectangle, the words inside it become the selection.
@@ -1036,10 +1120,15 @@ function marqueeEnd() {
     const r = m.imgRect, bx = m.box.getBoundingClientRect();
     const fx = (bx.left - r.left) / r.width, fy = (bx.top - r.top) / r.height;
     const fw = bx.width / r.width, fh = bx.height / r.height;
+    // A word counts when the box covers a good part of it: half its width (or half the box, for a box drawn inside
+    // one word) and part of its height (a thin drag along a line counts). It used to need the word's exact centre
+    // inside the box — the PDF's word boxes are taller than the letters, so a snug box round one word missed it
+    // until it was drawn bigger (the user, 2026-11-11).
     const text = (S.words || [])
         .filter((wd) => {
-            const cx = wd.x + wd.w / 2, cy = wd.y + wd.h / 2;
-            return cx >= fx && cx <= fx + fw && cy >= fy && cy <= fy + fh;
+            const ix = Math.min(fx + fw, wd.x + wd.w) - Math.max(fx, wd.x);
+            const iy = Math.min(fy + fh, wd.y + wd.h) - Math.max(fy, wd.y);
+            return ix > 0 && iy > 0 && ix >= 0.5 * Math.min(wd.w, fw) && iy >= 0.4 * Math.min(wd.h, fh);
         })
         .map((wd) => wd.t).join(' ').replace(/\s+/g, ' ').trim();
     if (!text) { clearMarquee(); return; }
@@ -1175,6 +1264,7 @@ talkArea.addEventListener('click', (e) => {
 });
 board.addEventListener('mousedown', marqueeStart);
 board.addEventListener('scroll', () => { hideSelTools(); clearMarquee(); });
+talkScroll.addEventListener('scroll', () => { if (!S.marquee) hideSelTools(); });
 document.addEventListener('mouseup', (e) => {
     if (e.target.closest && e.target.closest('#cr-sel-tools')) return;
     setTimeout(updateSelTools, 0);
@@ -1213,11 +1303,11 @@ function openSqe(question = '') {
 /** Worth offering practice for: a highlighted bit that looks like maths (numbers, an equation, calculus). */
 const looksMathsy = (t) => /\d|[=^√∫]|\b(?:differentiate|integrate|solve|simplify|expand|factori[sz]e|evaluate|lim)\b/i.test(t || '');
 
-// Focus mode: just the board and the chat bar
+// Focus mode: no sidebar — the slide and MrSOLIS's panel have the whole window
 function setFocus(on) {
     document.body.classList.toggle('focus', on);
     $('hs-focus').classList.toggle('on', on);
-    $('hs-focus').title = on ? 'Leave focus mode (Esc)' : 'Focus mode (just the board)';
+    $('hs-focus').title = on ? 'Leave focus mode (Esc)' : 'Focus mode — hide the sidebar';
     if (on && typeof go === 'function') go('home');
 }
 $('hs-focus').addEventListener('click', () => setFocus(!document.body.classList.contains('focus')));
@@ -1240,9 +1330,47 @@ document.addEventListener('keydown', (e) => {
         return;
     }
     if (typing || document.getElementById('view-class').hidden) return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !zoomBar.hidden) {      // Ctrl +, Ctrl −, Ctrl 0: the slide's zoom
+        if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomStep(1); return; }
+        if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomStep(-1); return; }
+        if (e.key === '0') { e.preventDefault(); setZoom(1); return; }
+    }
     if (e.key === 'ArrowRight') nextSlide();
     if (e.key === 'ArrowLeft') prevSlide();
 });
+
+// ── Think (by the chat box) ──────────────────────────────────────────
+// With an online brain, the student's questions (chat, Explain, Solve) can make it think before it answers: better
+// answers to hard questions, a slightly longer wait. Not on this computer's brain: measured on Smarts, one question
+// took 230 s instead of 13 s and came out wrong (2026-11-11, think_probe.py). Lessons, quizzes and Interactive mode
+// never think. The choice is remembered on this computer.
+const THINK = { on: false, can: false };
+try { THINK.on = localStorage.getItem('mrsolis.think') === '1'; } catch (e) { /* storage blocked: off */ }
+const THINK_ON = 'Thinking on — MrSOLIS thinks before it answers your questions: better answers to hard ones, but a slightly longer wait.';
+const THINK_NEEDS = 'Thinking needs an online brain (Settings → Brain). The brain on this computer would take minutes to think and didn’t answer better in our tests.';
+
+function drawThink() {
+    const b = $('chat-think');
+    b.classList.toggle('on', THINK.on && THINK.can);
+    b.classList.toggle('unavailable', !THINK.can);
+    b.setAttribute('aria-pressed', String(THINK.on && THINK.can));
+    b.title = !THINK.can ? THINK_NEEDS
+        : THINK.on ? 'Thinking is on: better answers to hard questions, a slightly longer wait. Click to answer quickly.'
+        : 'Think: MrSOLIS thinks before it answers — better answers to hard questions, a slightly longer wait.';
+}
+function setThinkCan(can) {
+    if (THINK.can === can) return;
+    THINK.can = can;
+    drawThink();
+}
+$('chat-think').addEventListener('click', () => {
+    if (!THINK.can) { showToast(THINK_NEEDS, 6500); return; }
+    THINK.on = !THINK.on;
+    try { localStorage.setItem('mrsolis.think', THINK.on ? '1' : '0'); } catch (e) { /* not remembered */ }
+    drawThink();
+    showToast(THINK.on ? THINK_ON : 'Thinking off — quicker answers.', THINK.on ? 6000 : 3000);
+});
+drawThink();
 
 // ── Start ────────────────────────────────────────────────────────────
 updateProgress();

@@ -28,7 +28,7 @@ DEFAULT_SETTINGS = {
     "lesson_length": "standard",   # short | standard | detailed
     "board_text": "normal",        # normal | large | xlarge
     "reduce_motion": False,
-    "voice_speed": "normal",       # slow | normal | fast — how fast MrSOLIS speaks in Live mode
+    "voice_speed": "normal",       # slow | normal | fast — how fast MrSOLIS speaks (Read aloud, Interactive mode)
     "brain": None,                 # the model the student picked (backend/brain.py CATALOG id)
     "look_at_slides": True,        # let the brain look at each slide's picture while teaching
 }

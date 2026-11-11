@@ -262,6 +262,10 @@ _UNITS = [                                     # after a number: "10 N" → "10 
     (r"Pa", "pascals"), (r"mA", "milliamps"), (r"kΩ", "kilohms"), (r"ms", "milliseconds"),
     (r"km", "kilometres"), (r"cm", "centimetres"), (r"mm", "millimetres"), (r"m", "metres"),
     (r"s", "seconds"),
+    # read out by CUSTOM-Mx's working in Interactive mode ("12 V", "3 A", "2 kWh = 7.2 MJ"), 2026-11-11
+    (r"kWh", "kilowatt-hours"), (r"Wh", "watt-hours"), (r"MJ", "megajoules"), (r"MW", "megawatts"),
+    (r"kV", "kilovolts"), (r"mV", "millivolts"), (r"V", "volts"), (r"A", "amps"), (r"kg", "kilograms"),
+    (r"g", "grams"), (r"mol", "moles"), (r"C", "coulombs"), (r"min", "minutes"), (r"h", "hours"),
 ]
 _GREEK = {"α": "alpha", "β": "beta", "γ": "gamma", "δ": "delta", "ε": "epsilon", "ζ": "zeta", "η": "eta",
           "θ": "theta", "κ": "kappa", "λ": "lambda", "ν": "nu", "ξ": "xi", "ρ": "rho", "σ": "sigma", "τ": "tau",
@@ -283,6 +287,8 @@ _SAY = [(r"(?<=\d)\s*" + u + r"(?![\w/])", " " + w) for u, w in _UNITS] + [
     (r"×|·|⋅", " times "), (r"÷", " divided by "), (r"≈", " is about "),
     (r"≤", " is at most "), (r"≥", " is at least "), (r"≠", " is not equal to "),
     (r"→|⇒", " gives "), (r"√", " the square root of "), (r"Δ", " delta "), (r"π", " pi "),
+    (r"∫", " the integral of "), (r"(?<=[A-Za-z0-9)])\s+/\s+(?=[A-Za-z0-9(])", " over "),   # Q / t, 12 volts / 4
+    (r"(?<=[A-Za-z)])/(?=\d)", " over "),      # x cubed/3
     (r"Ω", " ohms "), (r"(?<=\d)\s*[μµ](?=[A-Za-z])", " micro "), (r"[μµ]", " mu "),   # 5 μF / μ = 0.3
     (r"°", " degrees "), (r"%", " percent "),
     (r"(?<=[A-Za-z])/(?=[A-Za-z])", " per "),  # m/s → m per s

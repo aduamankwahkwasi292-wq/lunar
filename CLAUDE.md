@@ -11,9 +11,23 @@ dev when the GGUFs aren't present (`LUNAR_LLM_BACKEND=auto`). Build steps: see `
 (`scripts/fetch_models.py` then `scripts/build_desktop.py`, run per-OS).
 
 ## MrSOLIS 3 UI (the live frontend, `/app`)
-The app is being rebranded **MrSOLIS 3**: a **black & white**, futuristic UI built in plain HTML/CSS/SVG,
-laid out after `docs/design/mrsolis3-mockup.webp` (sidebar, search bar, board, hint, chat bar). The board is a
-steel frame with glowing white edges around a **silver-grey writing surface** with dark text. `frontend/index.html`
+The app is being rebranded **MrSOLIS 3**: a **black & white**, futuristic UI built in plain HTML/CSS/SVG.
+**Layout since 2026-11-11 (the user's design, "kinda like Copilot in VS Code"):** the sidebar on the left; the slide
+as large as it fits in the middle, on a dark viewer (`#class-main` → `#board`, which keeps its old ids and parts — the
+steel frame `#board-frame` and the silver surface are hidden by the CSS section "THE CLASSROOM LAYOUT" at the end of
+mrsolis.css, which overrides the older rules above it); **Interactive mode** and Look at slides under the slide
+(`#class-under`); MrSOLIS's lessons and answers in the right-hand panel (`#talk-panel` → `#talk-scroll` →
+`#talk-area`, rendered by mrsolis-wire.js), with the tip and a two-row typing bar under them; Find anything centred in
+the 56 px title bar, Focus and Settings top right. **Focus** hides the sidebar so the slide and the panel fill the
+window. Words-only slides sit on a white `.cr-sheet`. **Zoom** (2026-11-11): `#zoom-bar` at the viewer's
+bottom-left (− / level = fit / +), Ctrl + wheel or a pinch, Ctrl +/−/0; 50–400% of the fitted size (`S.zoom`,
+mrsolis-wire.js `applyZoom`): a picture gets a width, a sheet CSS `zoom`; kept across a deck's slides, fit for a new
+deck; a MutationObserver on #slide-area re-applies it to every new slide; `#cr-board.zoomed` scrolls sideways.
+**Box-select** on a slide picture (`marqueeEnd`): a word counts when the box covers half its width (or half the box)
+and 40% of its height (or of a thin box) — it used to need the word's centre inside, and the PDF's word boxes are
+taller than the letters, so a snug box round one word failed (the user, 2026-11-11; marquee-test.js). Before, the slide sat small on a silver board with the lesson
+under it (the user: "impossible to read anything"). Check layouts at real window sizes with
+`Downloads\lunar\class-board-test\shoot.mjs` (headless Edge; the preview pane is too small). `frontend/index.html`
 loads:
 - `static/mrsolis.css` — all styles (Inter Tight bundled in `static/fonts/`, no web fonts).
 - `static/mrsolis-scene.js` — the backdrop canvas (stars, greyscale moon, floor grid) and the board frame SVG,
@@ -35,10 +49,10 @@ loads:
   when opened (`_upgrade_ppt_session`), keeping the student's place. The student reported blocks "mangle" slides.
   Also: save lesson parts / highlights to Notes, resume a deck at its last slide, focus mode, settings.
   The button under the slide ladder (`#hs-target`) clears the board (slides + chat) — the deck stays in Uploads.
-- **No slides open:** chat (typed, Transcription and Live) still works. `/api/chat_stream` →
+- **No slides open:** chat (typed and Transcription) still works. `/api/chat_stream` →
   `classroom.free_chat_stream` answers from general knowledge, and every reply ends with a rotating reminder
   (`upload_nudge`) to upload material or reopen a recent deck. The board shows Upload / Open a past upload buttons
-  under each such answer; the hint bar, chat placeholder and idle board ask for slides; Live greets with the same
+  under each such answer; the hint bar, chat placeholder and idle board ask for slides with the same
   request and answers "next slide" with it. The student asked for this (2026-10-17): "MrSOLIS should continually
   tell them to upload their material and start learning".
 - `static/mrsolis-pages.js` — the sidebar pages, rendered into `#view-page`: Uploads (library), Subjects,
@@ -47,7 +61,7 @@ loads:
 - `static/mrsolis-calc.js` — Tools → Calculator: a real scientific calculator (own recursive-descent parser, no
   model, no eval): DEG/RAD, 2nd for inverses, EXP, Ans, nCr/nPr, live preview, history tape. `calcEval()` is pure
   and can be tested with node (`require` the file). One shared calculator (CALC state) mounted with `mountCalc(root)`
-  in Tools and in `#board-calc` — typing **/calculator** (or /calc) in the chat box, or saying "calculator" in Live,
+  in Tools and in `#board-calc` — typing **/calculator** (or /calc) in the chat box
   puts it on the board as a draggable dark panel. "/" commands live in `COMMANDS` in mrsolis-wire.js (menu: #cmd-menu).
   **/find <name>** (alias /open) searches the student's files by name (`backend/finder.py`: a background list of
   PDF/PPT/Word/text files in Desktop, Downloads, Documents, OneDrive, the rest of home, other drives/USB; skips app
@@ -56,13 +70,15 @@ loads:
   Only paths a search returned can be opened (`finder.allowed`). Same names in different folders are normal.
   Never rebuild the keys while in use (`refreshKeys` relabels in place) — a key replaced mid-press loses its click.
 - `static/mrsolis-voice.js` — voice. **Transcription** (mic button) types what you say into the chat box;
-  **Live** (wave button) is a spoken conversation: answers are read aloud sentence by sentence as they're
-  written, the student can talk over it to interrupt, and "next slide" / "go back" / "stop" / "end live" work.
-  Backend `backend/voice.py` (sherpa-onnx): NVIDIA Parakeet TDT 110M hears, Silero VAD finds turns, Supertonic 2
-  speaks in male voice M2 (speaker id 6). Audio is posted as 16 kHz float32 chunks to `/api/voice/listen/{id}`
-  (no WebSockets needed; `?final=1` on the last post finishes the sentence in progress when the mic is stopped).
-  **Read aloud** button under every lesson/answer on the board (`readAloud` in mrsolis-voice.js) uses Live's voice
-  queue (so Live's echo filter knows it); a short first sentence plays alone so speech starts in ~0.5 s.
+  **Read aloud** (under every lesson/answer, `readAloud`) speaks it through a small queue (`enqueue`/`playNext`,
+  a short first sentence alone so speech starts in ~0.5 s). The file also holds `Mic` and `VOICE`, which
+  Interactive mode uses. **Live** (the wave button: a spoken chat that was always listening) was **removed on
+  2026-11-11** — the user: "REMOVE THE LIVE MODE … INTERACTIVE MODE IS EVEN BETTER AND DOES MORE". Don't bring
+  it back. Backend `backend/voice.py` (sherpa-onnx): NVIDIA Parakeet TDT 110M hears, Silero VAD finds turns,
+  Supertonic 2 speaks in male voice M2 (speaker id 6). Audio is posted as 16 kHz float32 chunks to
+  `/api/voice/listen/{id}` (no WebSockets needed; `?final=1` on the last post finishes the sentence in progress
+  when the mic is stopped). `voice.speakable` reads maths: units after numbers (12 V → 12 volts, A, kWh, MJ…),
+  "Q / t" as "Q over t", Greek, powers.
   Models in `models/voice/` (`scripts/fetch_models.py`); credit Parakeet (CC BY 4.0) wherever the app lists them.
   Picked 2026-10-17 by testing on the student's own Ghanaian-accented voice. Rejected: Moonshine Base (garbled the
   student's sentences, nothing past ~9 s), Canary 180M (as accurate, 5× slower), Kokoro (2.4× slower than real
@@ -77,7 +93,10 @@ loads:
   spread over the deck (a slide repeats only in a later round); `write` makes one question per call as strict JSON
   (llama-server json_schema grammar) with 1–3 short key points, nudged to a different style each time, told what was
   already asked (library `asked`, per deck, question + answer; `_alike` rejects near-repeats of either), no calculation
-  on a slide without a formula, calculations recomputed from the brain's own arithmetic (`calc`, safe AST eval), and
+  on a slide without a formula, calculations recomputed from the brain's own arithmetic (`calc`, safe AST eval), a
+  units check in code (`_units_agree`, 2026-11-06: the working must give the answer's unit and a value can't be named
+  as another quantity; Speedy wrote "40 A … in 3 s" for 40 C and "4 Ω of current"; it judges only the units it can
+  read, 28/28 on a test set), and
   every question re-checked against the slide (`_CHECKER`) before use. `mark`: numbers and "I don't know" in code,
   answers repeating the key words in code, otherwise one yes/no brain call per key point (8/8, then 11/12 on test
   answers; asking for a verdict/comment directly gave 2/8–6/8 and praised things the student never wrote); verdict
@@ -147,7 +166,7 @@ loads:
   with the label on picture slides.
 - **2026-10-21 fixes (user's list):**
   - Quiz never asks about slide admin: `_quiz_text` drops lines repeated on 30%+ of the deck's slides (footers such as "P. A. KWABI (Ph.D.) SET THEORY 110/119"), admin lines (`_ADMIN_LINE`: university, lecturer, Dr., email…) and page numbers before writing. `quizgen._ADMIN_Q` rejects admin questions, and the checker rejects them too. The user saw "What is the name of the institution?".
-  - "Look at slides" is an eye switch under the board (`#look-chip`, right of the hint; mrsolis-brain.js `LOOK`), no longer in Settings.
+  - "Look at slides" is an eye switch under the slide, beside Interactive mode (`#look-chip` in `#class-under`; mrsolis-brain.js `LOOK`), no longer in Settings.
   - Lesson length is held three ways for every brain (Smarts overran its cap on Short):
     - the word limit sits in the user turn ("Teach this slide in under 120/220/380 words");
     - the lesson stops at the first full stop past limit × 1.3;
@@ -202,6 +221,146 @@ The user wants MrSOLIS to "watch" videos. The Qwen brains see but can't hear, so
 - **ffmpeg / ffprobe (bundled 2026-10-25, the user said yes):** `runtime/ffmpeg/` holds the LGPL v3 "win64-lgpl-shared" FFmpeg n9.0.2 from BtbN FFmpeg-Builds (ffmpeg.exe, ffprobe.exe and 7 DLLs, 150 MB; no ffplay, headers or docs), with LICENSE.txt (LGPL v3), COPYING.GPLv3.txt and README-MrSOLIS.txt (source, pinned dated release, SHA-256). Built without GPL or non-free parts (`ffmpeg -buildconf`). `video.tools()` looks at `LUNAR_FFMPEG_DIR`, then `runtime/ffmpeg/`, then the PATH; `desktop/package.json` extraResources ships it to `resources/runtime/ffmpeg`. Same results and speed as the dev laptop's own ffmpeg (82 s lecture prepared in 7.9 s). Its licences are on the app's Licences & credits page.
 - Parakeet runs about 15× real time here, so a 1-hour lecture takes about 4–7 min to prepare (progress is shown on
   the chip).
+
+## Interactive mode — the class at the blackboard (2026-11-10, reworked 2026-11-11)
+The user: "MAKE MrSOLIS INTERACTIVE, JUST LIKE A TEACHER TEACHING IN CLASS": a full-screen blackboard "like the
+Organic Chem Tutor's", written on while it is explained aloud. Started with the **Interactive mode** button over the
+board (`#ic-start`, shown once slides are open) or `/class`. After testing it (11-11) the user asked for: a
+**raise-hand** button instead of always listening (it heard its own voice: "an echo", and the voice dipped), every
+slide **finished** before the next with "we're moving on", no Next-slide button, more on the board and speech about
+exactly what is written, no slide numbers or fake "Answer:" lines, no SHOUTED headings.
+- `static/mrsolis-board.js` — class `Blackboard`: the board itself, no backend. Every letter is drawn stroke by
+  stroke with a pen dot (`write(text, {duration, color, indent, scale, kind})` resolves when the pen lifts;
+  `pause/resume/finish/erase/space`, `.lines`, `.rate`; `erase()` also forgets `.lines`). It lays out what a teacher
+  writes: `# heading` (underlined), `- bullet`, `**key term**` in colour, "Answer: …" boxed, and maths: x^2, v_0,
+  √(…), and fractions stacked from plain text ("V/R", "(a+b)/c", "G m1 m2 / r^2"; units like "m/s" after a number
+  and words like "and/or" stay on the line). `boardTidy` turns LaTeX leftovers and keyboard stand-ins into signs.
+  Drawn in a 1600-wide space the screen scales (the class uses em 52). Test bench outside the repo:
+  `Downloads\lunar\class-board-test` (preview "class-board-test"; `capture('name')` saves a full-size PNG; a hidden
+  pane draws no frames: call `board.frame()`), plus `run_backend.py` (preview "mrsolis-class-test": the backend on
+  the TEST profile, port 8011) and `try_class.py` (prints a slide's class, or `--ask "question"`).
+- `static/board-font.json` — the handwriting, built by `scripts/build_board_font.py` from the npm package
+  hersheytext 2.0.0 (kept in the test bench folder): EMS Tech (SIL OFL, a single-line Architects Daughter) plus the
+  Hershey Greek letters (their keys follow the Symbol font: q is theta, w is omega) plus maths signs drawn in the
+  script. 1 and I are drawn again (both were a bare stroke), and × ÷ ± (they sat outside their own space). Heights
+  are measured from the font (cap, xh, asc, desc in the JSON), not its metadata, which is wrong. Credited in
+  Licences & credits (`licences/board-handwriting-ofl.txt`).
+- `backend/boardclass.py` — **what is written is normal mode's own lesson** (the user, 11-11: "MrSOLIS WRITES SOME
+  REAL BS ON THE BOARD … MAKE IT WRITE AS THOUGH IT WAS ON THE BOARD (THE NORMAL MODE)"). An earlier design (11-11
+  morning) made the brain fill BOARD:/SAY: lines point by point under a GBNF grammar: a 2B brain writes much worse
+  under such rules than in its own prose ("A = 3 A", fake "Answer:" lines). Now `lesson_steps` streams
+  `classroom.teach_slide_stream` (the same prompt, length setting and `exact` hand-off as the lesson under the
+  slide; `prior=` carries on after the student cut in) and `sentences()` cuts it into sentences as they arrive
+  (`_cut`: "1." of a numbered step, "e.g." are not sentence ends; a blank line marks a new paragraph, `gap`). Each
+  sentence is one step: written on the board while exactly that sentence is said. Before that, `unlatex` turns
+  LaTeX into signs ("\times" → ×: the voice skipped LaTeX words) and `check_sums` recomputes every "sum = result"
+  with quizgen's safe calculator and corrects a wrong result. A bold line repeating the heading is dropped. Answers
+  to the student are normal chat answers (`classroom.chat_stream`) cut the same way, written in orange.
+- **Maths goes through CUSTOM-Mx** (the user: "ROUTE MATH THROUGH CUSTOM-Mx"; `main._class_maths`): the question in
+  symbols first (`spoken_maths`: "twelve divided by four" → 12 / 4, number words → digits); a unit conversion
+  ("how many joules is 2 kWh" → `convert 2 kWh to joules`, `conversion`) or a CUSTOM-Mx command runs exactly; maths
+  with nothing to misread goes to `mathengine.solve`; a word problem (a cue word or units) is set up by
+  `_draft_exact` and shown as an **offer** (`offer_step`) — never worked unchecked, as in normal mode (its reading of
+  words is right only about half the time). The slide's own questions (`mathengine.slide_questions`) are offered
+  after its lesson. `/api/class/run` works a checked setup and returns `working_steps` (CUSTOM-Mx's lines, the
+  answer boxed; a "Result:" equal to the answer is dropped). Spoken maths reads well because `voice.speakable` now
+  says units after numbers (12 V → 12 volts, A, kWh, MJ, g, h, min…) and "Q / t" as "Q over t".
+- The class's slide steps: title/outline slides in code (`fixed_steps`), a closing "Thank you" slide passed over,
+  footers left out (`repeated_lines`), SHOUTED headings calmed (`calm`, acronyms kept via `caps_kept`), and a last
+  step `{"end": true}` that says where the class goes next (`transition`; `main._class_next` finds the next title as
+  normal lessons' `_transition` does). Routes: `/api/class/teach_stream` (`done`: steps already written — their
+  `md` rebuilds the lesson so far, `fin` marks it complete, offers already made aren't repeated),
+  `/api/class/ask_stream`, `/api/class/run`.
+- `static/mrsolis-class.js` — the class (`IC`, `startClass`/`endClass`). One loop (`icDirect`) teaches step after
+  step: the voice (`/api/voice/speak`, a sentence at a time, cached) and the pen start together, and the writing is
+  timed to the saying. A new slide wipes the board first. The next slide is prepared while the current one is
+  taught (`icLoad`/`icAhead`, one slide ahead at most). **The microphone is on only while the hand is up**
+  (`icRaiseHand`, ✋ button or H): the voice and pen freeze first, then the voice module's `Mic` opens; the student's words
+  show as a caption; 1.5 s after they stop (or ✋ Done) the mic closes and the words go to `icStudent`: a command
+  ("continue", "say that again", "next slide", "go back", "slower"/"faster", "end the class") or a question
+  (`icAnswer`: written in purple so a mishearing shows, answered in orange — CUSTOM-Mx's working in white —, then "Back to the lesson" and the
+  interrupted step is said again without being written again). No speech for 10 s lowers the hand. Typing a
+  question (the box) pauses the class too. An offer (`icOffer`) shows ▶ Run it / Skip (R / S, or "yes" / "skip" with
+  the hand up) and the class waits for the student; Run writes and says CUSTOM-Mx's working line by line. Never two voices at once (`icPlay` pauses the old one). The whole
+  page goes full screen (not just the board), so toasts still show.
+- Not built yet: the slide's picture on the board for diagram slides, MrSOLIS asking the student questions,
+  saving a class to Notes/History, editing a CUSTOM-Mx setup in class (Skip, then ask it again).
+
+## Online brain — the student's own AI account (2026-11-11)
+The user: "make MrSOLIS offline-first instead of fully offline … bring their own LLM API key … SUPPORT DEEPSEEK,
+OpenAI COMPATIBLE POINTS, ANTHROPIC, GEMINI, NVIDIA FOR NOW". Everything stays in MrSOLIS's window.
+- `backend/cloud.py`: providers DeepSeek, OpenAI, Anthropic (Claude), Google Gemini (its OpenAI-compatible endpoint),
+  NVIDIA (integrate.api.nvidia.com), Other (any OpenAI-compatible server; plain http only for localhost/LAN).
+  OpenAI-style chat completions over httpx; Claude through the official `anthropic` SDK (AsyncAnthropic; never an
+  OpenAI shim): system prompts → `system`, image_url data URLs → base64 image blocks, no temperature (400 on the
+  2026-10-21 API version), `output_config.effort: "low"`, top-level `cache_control`, `output_config.format` for
+  schemas (objects closed, size limits moved into descriptions), and for Opus 5.5 / Sonnet 5.5 / Fable the
+  server-side refusal fallback (beta `server-side-fallback-2026-07-01`, `fallbacks: "default"`).
+- Servers differ: `_QUIRKS` learns per (server, model) what was refused — max_tokens → max_completion_tokens,
+  temperature, reasoning_effort, json_schema → json_object + a JSON hint, too-large caps — and retries once.
+  Reply caps get +3072 for reasoning models (callers stop at their own length). `<think>` at the start is dropped.
+- **Offline-first:** `brain.chat` / `brain.chat_stream` try `cloud` when `cloud.on()`; a `CloudError(local_ok=True)`
+  (no internet, 402/429/5xx, out of credit) before any words falls back to the brain on this computer (words only if
+  it can't see). A refused key or unknown model is shown, not hidden. `brain.active()` = online or local;
+  `brain.sees()` follows the online model; `warm()` skips loading the local brain while online, and switching online
+  on stops it (memory back); the video warm-up is skipped online (it would be a paid request).
+- **The key:** `DATA_DIR/online-brain.json`, sealed with Windows DPAPI (`dpapi:`; other systems `b64:`, the file
+  is private); the page only ever gets `…last4`. API: GET/POST `/api/brain/online`, POST `/api/brain/online/models`
+  (filters embeddings/voices/images; `suggest`: Claude → claude-opus-5-5 per Anthropic's guidance), POST
+  `/api/brain/online/test`. `/api/health` → `online`, `chat_model` = short name ("Claude"; Other = "your server"),
+  `model`, `fallback`, `last_error`.
+- UI: Settings → Brain → "Online brain" card (mrsolis-brain.js `ONLINE`, also in the first-start chooser); the local
+  card says "Backup — used without internet" while online; the chip says "Online · Claude" (one line, ellipsis); a
+  toast once when the local brain answered instead. Real provider model names are shown here (the student picks
+  them); the never-name-the-model rule is about MrSOLIS's own brains.
+- Terms 6.1, 6.4, 6.6 and 5.1 cover it (make_terms.py run); credits list the SDK and httpx2. The release needs
+  `anthropic` installed (requirements.txt) and the spec collects `anthropic`, `httpx2`, `httpcore2`.
+- **Think** (the button by the chat box, 2026-11-11): the student's own questions (chat, free chat, Explain/Solve)
+  carry `x-mrsolis-think: 1`; main.py's `_ThinkFlag` (plain ASGI, so it holds while the answer streams) sets
+  `cloud.THINK`; the online model then thinks more: effort "medium" (not "low") for OpenAI/Gemini/Claude/ChatGPT plan,
+  deepseek-chat → deepseek-reasoner, `chat_template_kwargs.enable_thinking` for NVIDIA/Other, bigger reply caps.
+  Lessons, quizzes and Interactive mode never think. **Not on this computer's brain:** measured on Smarts
+  (think_probe.py) one circuit question took 230 s instead of 13 s and came out wrong (2 A, not 3 A); the server
+  stays `--reasoning off`, and the button is dimmed there with that reason. Remembered in localStorage
+  (`mrsolis.think`). Tests: think_app_test.py 4/4 (a fresh backend: a bug where the `<think>` filter reused the name
+  `think` made retries think — fixed, the filter is `nothink`).
+- **Subscriptions (researched 2026-11-11):** Anthropic forbids Claude Free/Pro/Max OAuth in third-party apps
+  (enforced Jan–Apr 2026; API keys only) — never build it. OpenAI's "Sign in with ChatGPT" plan usage (DevDay
+  2026-09-29) is self-serve only for open-source/locally hosted apps; a **paid** app must be accepted first. The user
+  sent OpenAI's interest form on 2026-11-11 ("Sign in and ChatGPT plan use for AI requests").
+- **Sign in with ChatGPT is BUILT but OFF** (`backend/siwc.py`, provider "chatgpt" in cloud.py, hidden unless
+  `siwc.enabled()`: `ENABLED = False`; dev runs only: `MRSOLIS_CHATGPT_PLAN=1`, ignored by the frozen app).
+  - OAuth (OpenAI's open-source flow): PKCE S256 in the student's browser (`window.open` → main.js →
+    shell.openExternal), a one-time listener on `http://127.0.0.1:<free port>/auth/callback`; first sign-in
+    `client_id=dynamic_agent_client` + `agent_name_hint=MrSOLIS`, the issued `oaiapp_…` id comes back in the callback
+    and is kept; `ext_agent_host_id` = `urn:uuid:` per install; scopes `openid profile email offline_access
+    resource.invoke chatgpt.tokens.use.direct`; `resource` is ALWAYS `https://api.openai.com/v1` (`RESOURCE`, apart
+    from `API`). ID token: iss/aud/exp/nonce/sub + RS256 against OpenAI's JWKS (pure Python). Plan use only if the
+    token response grants `chatgpt.tokens.use.direct` (else "Turn on plan use" = `prompt=consent`). Re-sign-in:
+    saved client id + `id_token_hint` + `login_hint`. Tokens sealed with DPAPI in online-brain.json.
+  - Refresh: grant `refresh_token` + client id + `resource`; the refresh token rotates (saved at once; one refresh at a
+    time); network trouble keeps credentials; terminal codes (invalid_grant, refresh_token_reused…) clear the tokens
+    and ask to sign in again. Sign out revokes at the discovery document's `revocation_endpoint`.
+  - Inference: `POST /v1/responses` with `store:false`, `stream:true`, system prompts in `instructions` (system items
+    are refused), pictures as `input_image`, `reasoning.effort:"low"` and `text.format` json_schema dropped if refused
+    (`subscription_sharing_unsupported_capability` + `error.param`); never temperature / max_output_tokens. Success
+    only on `response.completed`. Models: `GET /v1/models` → `models[]` with `visibility == "list"` (`slug`,
+    `display_name`). Usage limit (429) / unavailable (503) may fall back to this computer's brain.
+  - OpenAI's UI wording is used: "Continue with ChatGPT", "Use your ChatGPT plan" + its text, the one-time notice
+    "You're using your ChatGPT plan … Got it", "Using ChatGPT plan · Manage usage" by the chat box (`#plan-badge`) and
+    on the card, "Manage usage" first at the limit (https://chatgpt.com/settings/usage).
+  - Tests: `siwc_test.py` 29/29 (mock OpenAI: sign-in, RS256, rotation, terminal refresh, re-sign-in, revoke, declined,
+    no plan scope, forged token, gate), `cg-ui-test.mjs` 13/13 (the whole flow through the screen; `mock-openai` +
+    `mrsolis-chatgpt-test` preview configs, run_backend_cg.py). Not tried against the real OpenAI (needs acceptance).
+  - **To turn it on when OpenAI accepts MrSOLIS:** set `siwc.ENABLED = True` (and `PARTNER_CLIENT_ID` if OpenAI issues
+    one — then check their partner docs for a different flow); put OpenAI's official "Continue with ChatGPT" button
+    asset on `.cg-btn` (the docs require approved branding; ours is text-only); add "ChatGPT plans via Continue with
+    ChatGPT" to TERMS-OF-USE.md 6.6 (it now says subscriptions can't be used) + make_terms.py, and to the website's
+    terms/privacy; test once with a real ChatGPT account; then release.
+- Tests (Downloads\lunar\class-board-test): `online_brain_test.py` (32 mock checks + 4 on a real llama-server),
+  `online_app_test.py` (in the running app: online answer, then the stand-in server stopped → Smarts answered,
+  health showed the fallback), `settings-online-flow.js` (the card driven like a student). No real company keys
+  were available: the user tests those.
 
 ## CUSTOM-Mx (`backend/mathengine/`) — the maths engine
 Code does every calculation; a brain only explains, or labels a question's numbers when the rules can't read it.
@@ -297,6 +456,16 @@ answers a navigation question without opening `script.js` (≈2,800 lines) or `c
 - The graph intentionally **excludes** `uploads/` and `cache/` (user runtime data, not source).
 
 ## Don't break things
+- **Questions beyond the slide** (the user, 2026-11-11): `classroom.chat_stream` answers a question on the
+  subject directly, never saying whether the slide covers it; a question with nothing to do with the deck
+  (`on_subject`: its words against the whole deck's, `main._deck_subject`) is asked on its own (shown the
+  lesson, Smarts refused it), answered in one or two sentences, and code adds a friendly "Now, let's get back
+  to <slide title>." (`back_to_lesson`). `without_disclaimers` cuts "the slide doesn't cover this… from
+  general knowledge" clauses from chat, video and no-slides answers (keeping the answer after them).
+- **The window must never run old scripts:** `/static/*`, `/app`, `/sqe` are sent `Cache-Control: no-cache`
+  (middleware `_always_fresh`; unchanged files come back as 304s), and index.html links its scripts with
+  `?v=…`. Without it the window kept old copies for days by the browser's own guess: after Live was removed a
+  cached old mrsolis-voice.js failed on the new page. Bump `?v=` when a release changes several scripts.
 - Keep the app fully local — never reintroduce cloud LLM/API-key/Deepgram paths.
 - Preserve every DOM id/class that `script.js` selects; CSS is restyle-only (additive), no renames.
 - **The crib sheet must quote the slides exactly** (`questions.formula_lines` / `definition_pairs`). Before

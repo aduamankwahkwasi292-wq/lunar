@@ -135,10 +135,11 @@
         drawStars(W, H);
         const b = board.getBoundingClientRect();
         if (b.width > 0) {
-            // the moon peeks over the board's top-left, its dome filling the gap under the top bar
+            // the moon peeks over the slide viewer's top-left corner, its dome filling the gap under the top bar
+            // (kept near the corner, clear of "Slide 3 of 6" centred above the slide)
             const gap = b.top - document.getElementById('topbar').getBoundingClientRect().bottom;
             const R = Math.max(60, Math.min(150, (gap - 10) / 0.62));
-            drawMoon(b.left + R + 70, b.top + R * 0.38, R);
+            drawMoon(b.left + R + 14, b.top + R * 0.38, R);
             drawFloor(W, H, b);
         }
     }

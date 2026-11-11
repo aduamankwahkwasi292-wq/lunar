@@ -49,6 +49,9 @@ for pkg in [
     "PIL",
     "numpy",
     "sherpa_onnx",         # voice: speech recognition + text-to-speech
+    "anthropic",           # the online brain's Claude (backend/cloud.py): the official Anthropic SDK...
+    "httpx2",              # ...which runs on httpx2 (not httpx)
+    "httpcore2",
 ]:
     try:
         d, b, h = collect_all(pkg)

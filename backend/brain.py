@@ -28,6 +28,11 @@ import httpx
 
 from backend.local_llm import MODEL_DIR
 
+try:
+    from backend import cloud               # the student's own AI account, when they add one (Settings → Brain)
+except ImportError:                          # the frozen app's flat layout
+    import cloud
+
 DATA_DIR = os.environ.get("LUNAR_DATA_DIR") or os.path.join(os.path.dirname(MODEL_DIR), "data")
 BRAIN_DIR = os.path.join(DATA_DIR, "brains")
 HF = "https://huggingface.co"
@@ -338,14 +343,35 @@ def selected() -> str:
     return rec or have[-1]
 
 
-def active() -> bool:
-    """True when chat should go to the brain server (a brain is installed and the engine exists)."""
+def online() -> bool:
+    """True when the student's own AI account thinks for MrSOLIS (cloud.py, Settings → Brain → Online brain)."""
+    return cloud.on()
+
+
+def local_ok() -> bool:
+    """A brain is installed on this computer and the engine exists."""
     return bool(selected()) and server_exe() is not None
 
 
-def sees() -> bool:
+def active() -> bool:
+    """True when chat should go to a brain: the online one, or the one on this computer."""
+    return online() or local_ok()
+
+
+def local_sees() -> bool:
     b = BY_ID.get(selected())
-    return bool(b and b.get("sees")) and active()
+    return bool(b and b.get("sees")) and local_ok()
+
+
+def sees() -> bool:
+    return cloud.sees() if online() else local_sees()
+
+
+def _for_local(messages):
+    """The online brain couldn't answer and this computer's brain takes over: a brain that can't see gets the words."""
+    if local_sees():
+        return messages
+    return cloud._text_only(messages)
 
 
 _start_lock = asyncio.Lock()
@@ -368,6 +394,8 @@ async def ensure_ready() -> str:
 def warm():
     """At startup: load the brain in the background so the first lesson doesn't wait for it."""
     bid = selected()
+    if online():                     # the online brain needs no loading; this one starts only if it's needed
+        return
     if bid and server_exe():
         threading.Thread(target=SERVER.start, args=(bid,), daemon=True, name="brain-warm").start()
 
@@ -375,7 +403,7 @@ def warm():
 _SAMPLE = {"top_p": 0.8, "top_k": 20, "min_p": 0.0, "presence_penalty": 1.5}   # Qwen3.5 non-thinking advice
 
 
-def _payload(messages, temperature, max_tokens, stream, json_mode=False, schema=None):
+def _payload(messages, temperature, max_tokens, stream, json_mode=False, schema=None, grammar=None):
     p = {"messages": messages, "temperature": temperature, "stream": stream,
          "max_tokens": max_tokens or 768, **_SAMPLE}
     if stream:
@@ -385,11 +413,22 @@ def _payload(messages, temperature, max_tokens, stream, json_mode=False, schema=
         p["response_format"] = {"type": "json_schema", "json_schema": {"name": "reply", "schema": schema}}
     elif json_mode:
         p["response_format"] = {"type": "json_object"}
+    elif grammar:                  # a grammar of our own (GBNF): the class board's BOARD: / SAY: lines (boardclass.py)
+        p["grammar"] = grammar
     return p
 
 
 async def chat(messages, *, temperature=0.7, max_tokens=None, json_mode=False, schema=None, timeout=900.0) -> str:
     from backend.local_llm import LocalLLMError
+    if online():
+        try:
+            return await cloud.chat(messages, temperature=temperature, max_tokens=max_tokens,
+                                    json_mode=json_mode, schema=schema)
+        except cloud.CloudError as e:
+            if not (e.local_ok and local_ok()):
+                raise LocalLLMError(str(e)) from e
+            cloud.note(False, str(e), fallback=True)     # offline-first: this computer's brain answers instead
+            messages = _for_local(messages)
     url = await ensure_ready()
     try:
         async with httpx.AsyncClient(timeout=timeout, headers=SERVER.headers) as client:
@@ -403,13 +442,25 @@ async def chat(messages, *, temperature=0.7, max_tokens=None, json_mode=False, s
     return ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "") or ""
 
 
-async def chat_stream(messages, *, temperature=0.7, max_tokens=None, timeout=900.0, info=None):
+async def chat_stream(messages, *, temperature=0.7, max_tokens=None, timeout=900.0, info=None, grammar=None):
     from backend.local_llm import LocalLLMError
+    if online():
+        produced = False
+        try:
+            async for piece in cloud.chat_stream(messages, temperature=temperature, max_tokens=max_tokens, info=info):
+                produced = True
+                yield piece
+            return
+        except cloud.CloudError as e:
+            if produced or not (e.local_ok and local_ok()):
+                raise LocalLLMError(str(e)) from e
+            cloud.note(False, str(e), fallback=True)     # offline-first: this computer's brain answers instead
+            messages = _for_local(messages)
     url = await ensure_ready()
     try:
         async with httpx.AsyncClient(timeout=timeout, headers=SERVER.headers) as client:
             async with client.stream("POST", url + "/v1/chat/completions",
-                                     json=_payload(messages, temperature, max_tokens, True)) as r:
+                                     json=_payload(messages, temperature, max_tokens, True, grammar=grammar)) as r:
                 if r.status_code >= 400:
                     body = (await r.aread()).decode("utf-8", "ignore")[:300]
                     raise LocalLLMError(f"The brain returned an error: {r.status_code} {body}")

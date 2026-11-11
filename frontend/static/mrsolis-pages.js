@@ -88,7 +88,6 @@ function download(url) {
 
 // ── navigation ────────────────────────────────────────────────────────
 function go(page) {
-    if (page !== 'home' && typeof stopLive === 'function') stopLive();   // Live belongs to the classroom
     currentPage = page;
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
     $('hs-tools').classList.toggle('active', page === 'tools');
@@ -614,19 +613,21 @@ PAGES.history = async () => {
 // ══════════════════════════════════════════════════════════════════════
 const GUIDE = [
     ['upload', 'Start a lesson', [
-        'Drop a PDF, PowerPoint, Word file or photo of your notes on the board — or press <b>+</b> at the top.',
+        'Drop a PDF, PowerPoint, Word file or photo of your notes in the middle of the screen — or press <b>+</b> at the top.',
         'Or type <b>/find</b> and part of the file name (e.g. <b>/find EE 172</b>) to open it from your computer.',
-        'Each slide appears on the board and MrSOLIS teaches it underneath. Move with the arrows on the right, or the <b>←</b> <b>→</b> keys.',
+        'Each slide opens large in the middle and MrSOLIS teaches it in the panel on the right. Move with the arrows beside the slide, or the <b>←</b> <b>→</b> keys. <b>Interactive mode</b>, under the slide, teaches it out loud at a blackboard.',
+        'Zoom the slide with <b>−</b> and <b>+</b> at its bottom-left, <b>Ctrl</b> + the mouse wheel (or a pinch), or <b>Ctrl +</b> / <b>Ctrl −</b>. Click the percentage (or <b>Ctrl 0</b>) to fit it again; scroll to move around a zoomed slide.',
         'Your place is saved. Reopen any deck from <b>Uploads</b>; group decks by course in <b>Subjects</b>.']],
     ['send', 'Ask anything', [
-        'Type a question in the chat box at the bottom. MrSOLIS answers about the slide you are on.',
+        'Type a question in the chat box at the bottom right. MrSOLIS answers about the slide you are on.',
         'Highlight part of a slide or a lesson, then tap <b>Explain</b> for a closer look or <b>Solve</b> for a worked answer.',
+        '<b>Think</b>, by the chat box: with an online brain (Settings → Brain), MrSOLIS thinks before it answers your questions — better answers to hard ones, but a slightly longer wait.',
         'Got a lecture video or a recording? Drop it on the window (or press the picture button) and ask about it — MrSOLIS listens to what is said and looks at what is shown. It stays attached for more questions until you remove it.',
         'Stuck on a question in your notebook? Press the picture button (or paste a screenshot) and ask about it.',
         'No slides open? You can still chat — MrSOLIS answers and reminds you to upload your material.']],
     ['live', 'Talk with MrSOLIS', [
         '<b>Mic</b>: speak, and your words are typed into the chat box.',
-        '<b>Live</b> (the wave button): a spoken conversation. Talk over him to interrupt, or say “next slide”, “go back”, “stop” or “end live”.',
+        '<b>Interactive mode</b> (the button above the board, or type /class): MrSOLIS teaches your slides at a blackboard, writing and talking. Raise your hand ✋ (or press H) to ask a question; he stops, listens, answers, then carries on.',
         '<b>Read aloud</b> under any answer reads it to you.']],
     ['quiz', 'Test yourself', [
         'Open <b>Quizzes</b>, pick a deck and how many questions.',
@@ -668,8 +669,9 @@ const GUIDE = [
         'The button under the slide arrows clears the board; the deck stays in Uploads.']],
     ['gear', 'Make it yours', [
         'Settings → <b>Brain</b>: choose <b>Speedy</b> or <b>Smarts</b>. Speedy is faster; Smarts is smarter.',
-        'Change how long lessons are, the size of the writing on the board, and how fast MrSOLIS speaks.',
-        'The <b>Look at slides</b> switch under the board lets MrSOLIS read pictures and diagrams; turn it off for faster lessons on a slow computer.']],
+        'Change how long lessons are, the size of MrSOLIS\'s writing, and how fast MrSOLIS speaks.',
+        'Under <b>Brain</b>, <b>Online brain</b> plugs in your own AI account with an API key — DeepSeek, OpenAI, Claude, Gemini, NVIDIA or any OpenAI-compatible server — for a stronger brain. Without internet, MrSOLIS uses its own.',
+        'The <b>Look at slides</b> switch under the slide lets MrSOLIS read pictures and diagrams; turn it off for faster lessons on a slow computer.']],
 ];
 
 PAGES.help = async () => {
@@ -677,7 +679,7 @@ PAGES.help = async () => {
     html += '<div class="guide">' + GUIDE.map(([ic, title, steps, tag]) => `<div class="panel guide-card">
         <div class="tool-head">${icon(ic)}<h3>${title}</h3>${tag ? `<span class="bc-tag">${tag}</span>` : ''}</div>
         <ul>${steps.map((s) => `<li>${s}</li>`).join('')}</ul></div>`).join('') + '</div>';
-    html += `<div class="panel guide-start"><div><b>Ready?</b><span>Drop your slides on the board and class starts straight away.</span></div>
+    html += `<div class="panel guide-start"><div><b>Ready?</b><span>Drop your slides in the middle of the screen and class starts straight away.</span></div>
         <div class="row"><button type="button" class="btn primary" data-act="upload">${icon('upload')}Upload slides</button>
         <button type="button" class="btn" data-act="home">${icon('home')}Go to the board</button></div></div>`;
     pageView.innerHTML = `<div class="page">${html}</div>`;
@@ -691,7 +693,8 @@ PAGES.help = async () => {
 PAGES.settings = async () => {
     const { settings: st, engine } = await api('/api/settings');
     const seg = (key, opts) => `<div class="seg">${opts.map(([v, l]) => `<button type="button" data-act="set" data-key="${key}" data-val="${v}" class="${st[key] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-    const engineName = engine.backend === 'brain' ? 'Built-in (llama.cpp server, this computer’s processor)'
+    const engineName = engine.online ? `Online brain — your own ${engine.chat_model} account (the brain on this computer is the backup)`
+        : engine.backend === 'brain' ? 'Built-in (llama.cpp server, this computer’s processor)'
         : engine.backend === 'llama' ? 'Built-in (llama.cpp)' : engine.backend === 'ollama' ? 'Ollama (development)' : engine.backend;
     let html = head('Settings', 'How MrSOLIS teaches and looks. Everything stays on this computer.');
     html += `<div class="section-title">Lessons</div><div class="panel">
@@ -699,27 +702,28 @@ PAGES.settings = async () => {
             ${seg('lesson_length', [['short', 'Short'], ['standard', 'Standard'], ['detailed', 'Detailed']])}</div>
     </div>`;
     html += `<div class="section-title">Board</div><div class="panel">
-        <div class="setting"><div><b>Text size</b><span>The size of the writing on the silver board.</span></div>
+        <div class="setting"><div><b>Text size</b><span>The size of MrSOLIS's lessons and answers on the right, and of slides that are only words.</span></div>
             ${seg('board_text', [['normal', 'Normal'], ['large', 'Large'], ['xlarge', 'Extra large']])}</div>
         <div class="setting"><div><b>Reduce motion</b><span>Turn off animations and glows that move.</span></div>
             <button type="button" class="switch${st.reduce_motion ? ' on' : ''}" data-act="motion" aria-pressed="${!!st.reduce_motion}"></button></div>
     </div>`;
     html += `<div class="section-title">Voice</div><div class="panel">
-        <div class="setting"><div><b>Speaking speed</b><span>How fast MrSOLIS talks in Live mode.</span></div>
+        <div class="setting"><div><b>Speaking speed</b><span>How fast MrSOLIS talks when he reads aloud and in Interactive mode.</span></div>
             <div class="row">${seg('voice_speed', [['slow', 'Slower'], ['normal', 'Normal'], ['fast', 'Faster']])}
             <button type="button" class="btn" data-act="preview"${VOICE.speak ? '' : ' disabled'}>${icon('speaker')}Preview</button></div></div>
-        <div class="setting"><div><b>Two ways to talk</b><span><b style="display:inline;font-size:inherit">Mic</b> types what you say into the chat box. <b style="display:inline;font-size:inherit">Live</b> (the wave button) is a spoken conversation — talk over MrSOLIS to interrupt, or say “next slide”, “go back”, “stop”, “end live”.</span></div></div>
+        <div class="setting"><div><b>Two ways to talk</b><span><b style="display:inline;font-size:inherit">Mic</b> types what you say into the chat box. <b style="display:inline;font-size:inherit">Interactive mode</b> is a spoken class at a blackboard — raise your hand ✋ to ask, and MrSOLIS stops to listen.</span></div></div>
         <div class="setting"><div><b>On this computer</b><span>Hearing: NVIDIA Parakeet (CC BY 4.0) · Voice: Supertonic 2 by Supertone (OpenRAIL-M). ${VOICE.hear && VOICE.speak ? 'Installed — nothing you say leaves this computer.' : 'Not installed yet.'}</span></div></div>
     </div>`;
     // the brain: the model MrSOLIS thinks and looks with (cards from mrsolis-brain.js)
     html += `<div class="section-title" id="brain">Brain</div><div class="panel">
         <p class="bc-intro">${BRAIN_INTRO}</p>
         <div id="brain-cards"></div>
+        <div id="online-brain"></div>
     </div>`;
     html += `<div class="section-title">AI engine</div><div class="panel"><dl class="kv">
         <dt>Status</dt><dd>${engine.ok ? (engine.brain_state === 'starting' ? 'Loading the brain…' : 'Online') : 'Offline' + (engine.error ? ' — ' + esc(engine.error) : '')}</dd>
         <dt>Runs on</dt><dd>${esc(engineName || '—')}</dd>
-        <dt>Brain</dt><dd>${engine.backend === 'brain' ? esc(engine.chat_model || '—') : 'Classic (reads text only)'}</dd>
+        <dt>Brain</dt><dd>${engine.online ? esc(engine.model || engine.chat_model) : engine.backend === 'brain' ? esc(engine.chat_model || '—') : 'Classic (reads text only)'}</dd>
         <dt>Search model</dt><dd>${esc(engine.embed_model || '—')}</dd>
     </dl></div>`;
     html += `<div class="section-title">Your data</div><div class="panel">
@@ -729,12 +733,13 @@ PAGES.settings = async () => {
     html += `<div class="section-title">About</div><div class="panel"><dl class="kv">
         <dt>App</dt><dd>MrSOLIS 3 — Study Oriented Local Intelligence System</dd>
         <dt>Engines</dt><dd class="words"><b>CUSTOM-Mx</b> works the maths exactly · <b>CUSTOM-SQE</b> makes maths practice from your own questions · <b>CUSTOM-Kx</b> keeps the brain light on this computer’s memory</dd>
-        <dt>Privacy</dt><dd>No account, no internet, no API keys. Your slides and questions never leave this computer.</dd>
+        <dt>Privacy</dt><dd>Offline-first: with the brain on this computer, your slides and questions never leave it. Only if you turn on an online brain (your own AI account) do they go to that company.</dd>
     </dl>
     <div class="row about-row"><button type="button" class="btn" data-act="terms">${icon('notes')}Terms of use</button>
         <button type="button" class="btn" data-act="licences">${icon('book')}Licences &amp; credits</button></div></div>`;
     pageView.innerHTML = `<div class="page">${html}</div>`;
     mountBrainCards($('brain-cards'));
+    mountOnlineBrain($('online-brain'));
 
     const save = async (changes) => {
         try {
@@ -782,12 +787,17 @@ const CREDITS = [
         ['lgpl-3.0.txt', 'gpl-3.0.txt'], 'FFmpeg n9.0.2, built without GPL or non-free parts (BtbN FFmpeg-Builds). '
         + 'Its source: github.com/FFmpeg/FFmpeg and ffmpeg.org. You may swap in your own FFmpeg build (runtime/ffmpeg). '
         + 'FFmpeg is a trademark of Fabrice Bellard.'],
-    ['NVIDIA Parakeet TDT 110M', 'Hearing: turns speech into text — the mic, Live and videos.', 'Creative Commons Attribution 4.0 (CC BY 4.0)',
+    ['NVIDIA Parakeet TDT 110M', 'Hearing: turns speech into text — the mic, Interactive mode and videos.', 'Creative Commons Attribution 4.0 (CC BY 4.0)',
         [], 'By NVIDIA, prepared for sherpa-onnx by the k2-fsa project. Licence: creativecommons.org/licenses/by/4.0'],
     ['Supertonic 2', 'MrSOLIS’s speaking voice.', 'BigScience OpenRAIL-M (the voice model) · MIT (its code)',
         ['supertonic-model-openrail-m.txt', 'supertonic-code-mit.txt'], 'By Supertone Inc. The model licence forbids harmful uses (its Attachment A).'],
     ['Silero VAD', 'Tells when you start and stop talking.', 'MIT', ['silero-vad-mit.txt'], 'By the Silero Team.'],
     ['sherpa-onnx', 'Runs the hearing and speaking models.', 'Apache License 2.0', ['apache-2.0.txt'], 'By the k2-fsa project.'],
+    ['The blackboard’s handwriting', 'The letters and signs MrSOLIS writes with in Interactive mode.',
+        'SIL Open Font License 1.1 · the Hershey fonts: free to use with credit', ['board-handwriting-ofl.txt'],
+        'EMS Tech by Sheldon B. Michaels, a single-line font made from Architects Daughter by Kimberly Geswein '
+        + '(MrSOLIS draws a few characters again and adds maths signs). Greek letters: the Hershey fonts, created by '
+        + 'Dr. A. V. Hershey at the U.S. National Bureau of Standards.'],
     ['OpenStax', 'Formulas and textbook problems that CUSTOM-Mx uses.', 'Creative Commons Attribution 4.0 (CC BY 4.0)', [],
         'From the Key Equations and exercises of OpenStax textbooks (OpenStax, Rice University, openstax.org). Licence: creativecommons.org/licenses/by/4.0'],
     ['PDFium (through pypdfium2)', 'The engine under MrSOLIS’s own PDF layer: reads and draws the pages of your PDFs and slides.',
@@ -801,7 +811,8 @@ const CREDITS = [
         'Their full notices are in the app’s folder: LICENSE and LICENSES.chromium.html.'],
     ['Python and its libraries', 'The engine room behind the window.', 'Permissive licences', [],
         'Python (PSF licence) · FastAPI, Pydantic, python-pptx, python-docx, openpyxl (MIT) · Uvicorn, HTTPX, NumPy, SymPy, '
-        + 'mpmath, lxml, PyPDF2 (BSD) · Pillow (MIT-CMU) · python-multipart, Requests (Apache 2.0).'],
+        + 'mpmath, lxml, PyPDF2 (BSD) · Pillow (MIT-CMU) · python-multipart, Requests (Apache 2.0) · for the online brain: '
+        + 'the Anthropic Python SDK, jiter, truststore, docstring-parser (MIT), httpx2, httpcore2 (BSD).'],
 ];
 
 // The Terms of Use (built from TERMS-OF-USE.md by scripts/make_terms.py; the installer shows the same text).

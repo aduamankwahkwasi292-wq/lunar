@@ -144,7 +144,7 @@ def main() -> int:
     failures += fetch_voice()
     print()
     if failures:
-        print(f"{failures} model(s) failed. MrSOLIS needs them all (voice ones for the mic and Live mode).")
+        print(f"{failures} model(s) failed. MrSOLIS needs them all (voice ones for the mic, Read aloud and Interactive mode).")
         return 1
     print("All models ready. You can now build the desktop app.")
     return 0

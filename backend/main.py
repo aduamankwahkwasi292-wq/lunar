@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field
 
 from backend.file_processor import extract_rich_slides, slide_plain_text
-from backend import local_llm, classroom, file_processor, questions, voice, finder, brain, quizgen, mathengine, video
+from backend import local_llm, classroom, file_processor, questions, voice, finder, brain, quizgen, mathengine, video, boardclass
 from backend import gate, guard
 from backend.mathengine import command as mx_command
 from backend.sqe import api as sqe
@@ -64,6 +64,39 @@ brain.DATA_DIR, brain.BRAIN_DIR = DATA_DIR, os.path.join(DATA_DIR, "brains")   #
 # allow-every-website CORS rule is gone — the UI is served from here, so it never needed it.
 app.add_middleware(guard.Guard, token=os.environ.get("LUNAR_TOKEN", ""),
                    licensed=not gate.required() or gate.licensed(DATA_DIR))
+
+
+class _ThinkFlag:
+    """The Think button: the student's question carries `x-mrsolis-think: 1`, and for that request the online brain
+    thinks harder (cloud.THINK). A plain ASGI wrapper, so the flag holds while the answer streams."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and (b"x-mrsolis-think", b"1") in scope.get("headers", []):
+            token = brain.cloud.THINK.set(True)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                brain.cloud.THINK.reset(token)
+            return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_ThinkFlag)
+
+
+@app.middleware("http")
+async def _always_fresh(request, call_next):
+    """The app's pages and scripts are checked for a newer copy on every load (a cheap 304 when unchanged). Sent
+    with no Cache-Control, the window kept old copies for days by the browser's own guess: after Live was removed
+    (2026-11-11), a cached old mrsolis-voice.js ran against the new page and failed."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") or path in ("/", "/app", "/sqe"):
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 MEDIA_DIR = os.path.join(DATA_DIR, "uploads", "media")
 # Slide embeddings for "Find anything" are cached on disk keyed by content hash so
@@ -742,7 +775,8 @@ async def classroom_chat_stream(req: ClassroomChatRequest):
         try:
             async with _interactive():
                 async for piece in classroom.chat_stream(slide_text, req.message, req.history,
-                                                         image=picture, photo=bool(photo)):
+                                                         image=picture, photo=bool(photo),
+                                                         subject=_deck_subject(session)):
                     yield json.dumps({"token": piece}) + "\n"
         except local_llm.LocalLLMError as e:
             yield json.dumps({"error": str(e)}) + "\n"
@@ -753,6 +787,231 @@ async def classroom_chat_stream(req: ClassroomChatRequest):
         yield json.dumps({"done": True}) + "\n"
 
     return StreamingResponse(gen(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
+
+
+# ── Interactive mode: the class at the blackboard (backend/boardclass.py, static/mrsolis-class.js) ──────────────
+class ClassTeachRequest(BaseModel):
+    session_id: str
+    slide_index: int = 0
+    done: list[dict] = Field(default_factory=list)      # steps of this slide already written: carry on after them
+
+
+class ClassAskRequest(BaseModel):
+    session_id: str
+    slide_index: int = 0
+    message: str
+    board: list[str] = Field(default_factory=list)      # the last lines written on the board
+    history: list[dict] = Field(default_factory=list)   # earlier questions and answers in this class
+
+
+def _deck_subject(session: dict):
+    """The words of the whole deck (and its file name), once per session: a question that shares one is about what
+    the student is studying (classroom.on_subject); one that doesn't is answered briefly, with a nudge back."""
+    if "_subject" not in session:
+        text = " ".join(_grounding_text(s) for s in session.get("slides") or []) or session.get("text", "")
+        session["_subject"] = classroom._stems(text + " " + re.sub(r"[_\-.]+", " ", session.get("filename", "")))
+    return session["_subject"]
+
+
+def _class_text(session: dict, idx: int) -> str:
+    """What a slide says, for the class: its text without the lines that are on most slides (a footer)."""
+    slides = session.get("slides") or []
+    if "_class_footer" not in session:
+        session["_class_footer"] = boardclass.repeated_lines([_grounding_text(s) for s in slides])
+    return boardclass.without(_grounding_text(slides[idx]), session["_class_footer"])
+
+
+def _class_next(session: dict, idx: int):
+    """The title of the slide the class moves on to after slide idx: "" when it has none, None when nothing after
+    it is left to teach (only blank pages or a "Thank you" slide). As normal lessons' _transition decides."""
+    slides = session.get("slides") or []
+    for j in range(idx + 1, len(slides)):
+        s = slides[j]
+        if isinstance(s, dict) and s.get("blank"):
+            continue
+        text = _class_text(session, j)
+        if not text.strip():
+            continue
+        note = classroom._heading_note(text, j + 1) or ""
+        if note.startswith("That's the end"):
+            continue
+        nxt, cur = _heading_title(s), _heading_title(slides[idx])
+        if nxt and cur and _norm_line(nxt) == _norm_line(cur):
+            return ""                                    # the same section carries on
+        return boardclass.calm(nxt, boardclass.caps_kept(text), heading=True) if nxt else ""
+    return None
+
+
+async def _class_look(session_id: str, session: dict, slide, idx: int, grounding: str):
+    """The slide's picture, when the brain sees and the words alone would miss something (as in teach_stream)."""
+    if not (brain.sees() and lib.settings().get("look_at_slides", True)):
+        return None
+    if isinstance(slide, dict) and "_fig" not in slide:
+        slide["_fig"] = await asyncio.to_thread(file_processor.slide_has_figure, session["file_path"], slide)
+    if (isinstance(slide, dict) and slide.get("_fig")) or len(grounding.strip()) < 300:
+        try:
+            return await _slide_picture(session_id, idx)
+        except Exception:
+            return None
+    return None
+
+
+@app.post("/api/class/teach_stream")
+async def class_teach_stream(req: ClassTeachRequest):
+    """One slide of the class: normal mode's lesson for it, a sentence at a time (each written and said), the
+    slide's own questions set up by CUSTOM-Mx to run, then the line that moves the class on."""
+    session = _get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found. Upload a file first.")
+    slides = session.get("slides") or []
+    if not slides:
+        raise HTTPException(status_code=400, detail="This document has no slides to teach.")
+    idx = max(0, min(req.slide_index, len(slides) - 1))
+    slide = slides[idx]
+    grounding = _class_text(session, idx)
+    length = lib.settings().get("lesson_length", "standard")
+    done = req.done[:80]
+
+    async def gen():
+        yield json.dumps({"slide": {"index": idx, "count": len(slides), "title": _slide_title(slide)}}) + "\n"
+        lib.touch_slide(req.session_id, idx)             # progress + history, as when a slide is opened
+        title, after = _heading_title(slide), _class_next(session, idx)
+        if any(s.get("end") for s in done):
+            yield json.dumps({"done": True, "slide_index": idx}) + "\n"
+            return
+        fixed = boardclass.fixed_steps(grounding, idx + 1, _slide_title(slide) if idx == 0 else "", after)
+        if fixed is not None:
+            for step in fixed[len(done):]:
+                yield json.dumps({"step": step}) + "\n"
+            yield json.dumps({"done": True, "slide_index": idx}) + "\n"
+            return
+        heading = boardclass.calm(title, boardclass.caps_kept(grounding), heading=True) if title else ""
+        try:
+            payload = _slide_payload(req.session_id, slide, idx)
+            picture = None if payload.get("blank") else await _class_look(req.session_id, session, slide, idx, grounding)
+            if picture and isinstance(slide, dict) and slide.get("examinable", True):
+                payload["examinable"] = True              # a diagram-only slide can be taught from its picture
+            if payload.get("examinable") and (grounding.strip() or picture):
+                try:                                      # the slide's own questions: CUSTOM-Mx works them, not the brain
+                    offers = await asyncio.to_thread(mathengine.slide_questions, grounding)
+                except Exception:
+                    offers = []
+                lesson = [s for s in done if s.get("kind") == "lesson"]
+                if not any(s.get("fin") for s in lesson):
+                    prior = ""
+                    for s in lesson:
+                        prior += ("\n\n" if s.get("gap") else " ") + (s.get("md") or s.get("say") or "")
+                    async with _interactive():
+                        async for step in boardclass.lesson_steps(grounding, idx + 1, len(slides), length,
+                                                                  image=picture, exact=[q for q, _d in offers],
+                                                                  heading=heading, prior=prior.strip()):
+                            yield json.dumps({"step": step}) + "\n"
+                offered = {(s.get("offer") or {}).get("command") for s in done}
+                for _q, d in offers:
+                    if d["command"] not in offered:
+                        yield json.dumps({"step": boardclass.offer_step(d, "this slide's question")}) + "\n"
+        except local_llm.LocalLLMError as e:
+            yield json.dumps({"error": str(e)}) + "\n"
+            return
+        except Exception as e:
+            yield json.dumps({"error": f"Failed to teach slide: {e}"}) + "\n"
+            return
+        yield json.dumps({"step": {"kind": "lesson", "board": [], "end": True,
+                                   "say": boardclass.transition(heading, after, idx)}}) + "\n"
+        yield json.dumps({"done": True, "slide_index": idx, "last": idx >= len(slides) - 1}) + "\n"
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
+
+
+_MATHS_CUE = re.compile(r"(?i)\b(calculate|compute|work out|find|solve|how (many|much|long|far|fast)|convert|what is "
+                        r"the (value|answer|result)|evaluate|simplify)\b|[=+*/^√]")
+
+
+async def _class_maths(question: str):
+    """What CUSTOM-Mx makes of a question asked in class: ("worked", markdown) — worked exactly (a conversion,
+    a command, or maths with nothing to misread); ("draft", d) — a word problem set up for the student to check;
+    or None — not maths CUSTOM-Mx can take, so the brain answers."""
+    text = boardclass.spoken_maths(question)
+    if not re.search(r"\d", text):
+        return None
+    for command in boardclass.maths_candidates(text):
+        try:
+            r = await asyncio.to_thread(mx_command.run, command)
+        except Exception:
+            r = None
+        if r and r.get("ok"):
+            return "worked", r["markdown"]
+    for attempt in (text, boardclass.bare_maths(text)):
+        r = await asyncio.to_thread(mathengine.solve, attempt)
+        if r:
+            return "worked", mathengine.working_markdown(r)
+    if _MATHS_CUE.search(text) or mathengine._has_units(text):     # "…if the voltage is 12 volts…": a word problem
+        d, _reason = await _draft_exact(text)
+        if d and d.get("runs"):
+            return "draft", d
+    return None
+
+
+@app.post("/api/class/ask_stream")
+async def class_ask_stream(req: ClassAskRequest):
+    """The student raised their hand: maths goes to CUSTOM-Mx (worked exactly, or set up for them to check);
+    anything else gets normal mode's chat answer, a sentence at a time."""
+    session = _get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found. Upload a file first.")
+    slides = session.get("slides") or []
+    idx = max(0, min(req.slide_index, len(slides) - 1)) if slides else 0
+    slide_text = _class_text(session, idx) if slides else session.get("text", "")
+    lib.log("ask", req.session_id, slide=idx, text=req.message[:300])
+
+    async def gen():
+        try:
+            maths = await _class_maths(req.message)
+            if maths and maths[0] == "worked":
+                for step in boardclass.working_steps(maths[1], "Let me work that out exactly with my maths engine."):
+                    yield json.dumps({"step": step}) + "\n"
+            elif maths:
+                yield json.dumps({"step": boardclass.offer_step(maths[1])}) + "\n"
+            else:
+                picture = None
+                if slides and (_VISUAL_ASK.search(req.message) or len(slide_text.strip()) < 200):
+                    picture = await _class_look(req.session_id, session, slides[idx], idx, slide_text)
+                fixed = classroom.fixed_answer(req.message, True)      # "what model are you?" and the like
+                if fixed is not None:
+                    yield json.dumps({"step": {"kind": "answer", "board": [boardclass.board_line(fixed)],
+                                               "say": boardclass.speech(fixed)}}) + "\n"
+                else:
+                    async with _interactive():
+                        async for step in boardclass.answer_steps(slide_text, req.message, req.history, image=picture,
+                                                                  subject=_deck_subject(session)):
+                            yield json.dumps({"step": step}) + "\n"
+        except local_llm.LocalLLMError as e:
+            yield json.dumps({"error": str(e)}) + "\n"
+            return
+        except Exception as e:
+            yield json.dumps({"error": f"Failed to respond: {e}"}) + "\n"
+            return
+        yield json.dumps({"done": True}) + "\n"
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson", headers=_STREAM_HEADERS)
+
+
+class ClassRunRequest(BaseModel):
+    command: str
+
+
+@app.post("/api/class/run")
+async def class_run(req: ClassRunRequest):
+    """The student checked CUSTOM-Mx's setup and pressed Run it: the working, as class steps."""
+    command = (req.command or "").strip()
+    if not command or len(command) > 1500:
+        raise HTTPException(status_code=400, detail="Nothing to run.")
+    r = await asyncio.to_thread(mx_command.run, command)
+    lib.log("solve", None, text=("/CUSTOM-Mx " + command)[:300])
+    if not r.get("ok"):
+        why = re.sub(r"\*\*|`", "", r.get("markdown") or r.get("reason") or "CUSTOM-Mx couldn't work that.")
+        return {"ok": False, "steps": [{"kind": "maths", "board": [], "say": why.splitlines()[0][:300]}]}
+    return {"ok": True, "steps": boardclass.working_steps(r["markdown"])}
 
 
 class FreeChatRequest(BaseModel):
@@ -849,7 +1108,8 @@ async def video_warm(vid: str):
     starts from it (the engine keeps it, see classroom.video_messages). Measured 2026-10-24 on an
     i5-13420H: the first question took 23 s to its first word on Smarts (9 s on Speedy), follow-ups 1–2 s."""
     meta = video.load(vid)
-    if not meta or vid in _VIDEO_WARMED or not brain.active() or _interactive_count > 0:
+    # (not for the online brain: it keeps nothing between questions, and a warm-up would be a paid request)
+    if not meta or vid in _VIDEO_WARMED or not brain.local_ok() or brain.online() or _interactive_count > 0:
         return {"warming": False}
     _VIDEO_WARMED.add(vid)
     frames = video.frame_urls(meta, classroom._VIDEO_FRAMES) if brain.sees() else []
@@ -1729,7 +1989,105 @@ async def brain_remove(bid: str):
     return brain.status()
 
 
-# ---- Voice: Transcription (dictate into the chat box) and Live (talk with MrSOLIS) ----
+# ---- Online brain: the student's own AI account as the brain (backend/cloud.py, 2026-11-11) ----------------
+# Offline-first: without internet (or credit) MrSOLIS answers with the brain on this computer. The key never comes
+# back to the page — only its last four characters.
+class OnlineBrainRequest(BaseModel):
+    provider: str | None = None
+    key: str | None = None
+    base: str | None = None
+    model: str | None = None
+    sees: bool | None = None
+    on: bool | None = None
+
+
+class OnlineModelsRequest(BaseModel):
+    provider: str
+    key: str | None = None
+    base: str | None = None
+
+
+@app.get("/api/brain/online")
+async def online_brain_get():
+    return brain.cloud.state()
+
+
+@app.post("/api/brain/online")
+async def online_brain_set(req: OnlineBrainRequest):
+    was = brain.online()
+    try:
+        st = brain.cloud.save(req.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    now = brain.online()
+    if now and not was and brain.SERVER.proc:
+        await asyncio.to_thread(brain.SERVER.stop)   # give back the memory this computer's brain held
+    elif was and not now:
+        brain.warm()                                 # back to the brain on this computer
+    return st
+
+
+@app.post("/api/brain/online/models")
+async def online_brain_models(req: OnlineModelsRequest):
+    try:
+        return await brain.cloud.list_models(req.provider, req.key, req.base)
+    except brain.cloud.CloudError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/brain/online/test")
+async def online_brain_test():
+    try:
+        return await brain.cloud.test()
+    except brain.cloud.CloudError as e:
+        return {"ok": False, "error": str(e)}
+
+
+# ---- Sign in with ChatGPT: a ChatGPT Plus/Pro plan as the online brain (backend/siwc.py) ----------------------
+# Hidden (404) until OpenAI accepts MrSOLIS: siwc.ENABLED, or MRSOLIS_CHATGPT_PLAN=1 in a dev run.
+class ChatGPTSignInRequest(BaseModel):
+    consent: bool = False
+
+
+def _siwc_or_404():
+    s = brain.cloud._siwc()
+    if not s.enabled():
+        raise HTTPException(status_code=404, detail="Not available.")
+    return s
+
+
+@app.post("/api/brain/chatgpt/signin")
+async def chatgpt_signin(req: ChatGPTSignInRequest):
+    s = _siwc_or_404()
+    try:
+        return {"url": await asyncio.to_thread(s.start_signin, req.consent)}
+    except brain.cloud.CloudError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/brain/chatgpt/cancel")
+async def chatgpt_cancel():
+    await asyncio.to_thread(_siwc_or_404().stop_signin)
+    return brain.cloud.state()
+
+
+@app.post("/api/brain/chatgpt/signout")
+async def chatgpt_signout():
+    s = _siwc_or_404()
+    was = brain.online()
+    out = await s.sign_out()
+    if was and not brain.online():
+        brain.warm()                                 # back to the brain on this computer
+    return {**out, **brain.cloud.state()}
+
+
+@app.post("/api/brain/chatgpt/welcomed")
+async def chatgpt_welcomed():
+    _siwc_or_404().mark_welcomed()
+    return brain.cloud.state()
+
+
+# ---- Voice: Transcription (dictate into the chat box), Read aloud, Interactive mode's raised hand ----
 @app.get("/api/voice/status")
 async def voice_status():
     return voice.status()

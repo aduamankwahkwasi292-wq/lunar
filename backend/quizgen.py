@@ -186,6 +186,125 @@ def _fix_numeric(q: dict, slide: str) -> dict | None:
     return q
 
 
+# ── units: right arithmetic with the wrong units is a wrong question ──────
+# Speedy wrote "A battery supplies 40 A through a load in 3 s. What current…?" with 40/3 = 13.33 A (it meant 40 C) and
+# marked the student's literal "40 A" wrong; and "A 12 V battery drives 4 Ω of current" (2026-11-06, phone test).
+# The arithmetic was right both times, so _fix_numeric can't see it. Each unit is its powers of the SI base units
+# (kg, m, s, A, K); the working must give the answer's unit, and a value can't be called another quantity. Both
+# checks judge only what they can read: a number whose unit they don't know (4200 from "J/kg°C") leaves it alone.
+_UNIT = (r"(?:volts?|amps?|amperes?|watts?|joules?|coulombs?|newtons?|hertz|kilograms?|grams?|metres?|meters?"
+         r"|m/s²|m/s\^?2|m/s|km/h|kWh|Wh|[kM]?Ω|k?ohms?|[kMmµu]?A|[kMm]?V|[kMm]?W|[kM]?J|[mµun]?C|[kM]?Hz|k?N|k?Pa"
+         r"|kg|g|km|cm|mm|ms|minutes?|mins?|hours?|hrs?|h|seconds?|s|m)")
+_UNIT_WORDS = {"volt": "V", "amp": "A", "ampere": "A", "watt": "W", "joule": "J", "coulomb": "C", "newton": "N",
+               "hertz": "Hz", "kilogram": "kg", "gram": "kg", "metre": "m", "meter": "m"}
+_QUANTITY = re.compile(r"(\d+(?:\.\d+)?)\s*(" + _UNIT + r")(?![\w/²^])")
+_DIMS = {"A": (0, 0, 0, 1, 0), "C": (0, 0, 1, 1, 0), "V": (1, 2, -3, -1, 0), "Ω": (1, 2, -3, -2, 0),
+         "W": (1, 2, -3, 0, 0), "J": (1, 2, -2, 0, 0), "Hz": (0, 0, -1, 0, 0), "N": (1, 1, -2, 0, 0),
+         "Pa": (1, -1, -2, 0, 0), "kg": (1, 0, 0, 0, 0), "m": (0, 1, 0, 0, 0), "s": (0, 0, 1, 0, 0),
+         "m/s": (0, 1, -1, 0, 0), "m/s²": (0, 1, -2, 0, 0)}
+_PLAIN = (0, 0, 0, 0, 0)
+# "4 Ω of current", "a 40 A charge": a value named as a quantity its unit isn't (only words with one meaning here:
+# "3 h of work" is labour, not energy)
+_NAMED = re.compile(r"(\d+(?:\.\d+)?)\s*(" + _UNIT + r")\s+(?:of\s+)?(?i:(current|charge|voltage|potential difference|"
+                    r"emf|resistance|power|energy|frequency|force|pressure|mass|speed|velocity|acceleration))\b")
+_NAMED_UNIT = {"current": "A", "charge": "C", "voltage": "V", "potential difference": "V", "emf": "V",
+               "resistance": "Ω", "power": "W", "energy": "J", "frequency": "Hz", "force": "N", "pressure": "Pa",
+               "mass": "kg", "speed": "m/s", "velocity": "m/s", "acceleration": "m/s²"}
+
+
+def _base_unit(token: str):
+    word = token[:-1] if token.endswith("s") and token[:-1] in _UNIT_WORDS else token
+    if word in _UNIT_WORDS:
+        return _UNIT_WORDS[word]
+    t = token.replace("ohms", "Ω").replace("ohm", "Ω")
+    if t in ("m/s²", "m/s^2", "m/s2"):
+        return "m/s²"
+    if t in ("m/s", "km/h"):
+        return "m/s"
+    if t in ("kWh", "Wh"):
+        return "J"
+    if t in ("kg", "g"):
+        return "kg"
+    if t in ("km", "cm", "mm", "m"):
+        return "m"
+    if t in ("ms", "s", "second", "seconds", "min", "mins", "minute", "minutes", "h", "hr", "hrs", "hour", "hours"):
+        return "s"
+    if t.endswith("Hz") or t.endswith("Pa"):
+        return t[-2:]
+    return t[-1] if t[-1] in "AVWJCNΩ" else None
+
+
+class _CantTell(Exception):
+    """A number with no unit the check knows: it says nothing."""
+
+
+class _Mismatch(Exception):
+    """Units that don't add up."""
+
+
+def _dims(node, units: dict):
+    """The SI powers of what this arithmetic works out, from the units written beside its numbers."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        found = units.get(round(float(node.value), 9))
+        if found:
+            if len(found) > 1:                             # "12 V … 12 Ω": which 12?
+                raise _CantTell
+            return next(iter(found))
+        if node.value in (1, 2):                           # 1/R, x², ½: no unit of their own
+            return _PLAIN
+        raise _CantTell
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        return _dims(node.operand, units)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+        power = _eval(node.right)                          # a plain number
+        return tuple(round(d * power, 6) for d in _dims(node.left, units))
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+        a, b = _dims(node.left, units), _dims(node.right, units)
+        if isinstance(node.op, (ast.Add, ast.Sub)):
+            if a != b:
+                raise _Mismatch                            # ohms plus volts
+            return a
+        sign = 1 if isinstance(node.op, ast.Mult) else -1
+        return tuple(round(x + sign * y, 6) for x, y in zip(a, b))
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and len(node.args) == 1:
+        inner = _dims(node.args[0], units)
+        if node.func.id == "sqrt":
+            return tuple(round(d / 2, 6) for d in inner)
+        if inner != _PLAIN:                                # sin(4 Ω)
+            raise _Mismatch
+        return _PLAIN
+    if isinstance(node, ast.Name) and node.id in ("pi", "e"):
+        return _PLAIN
+    raise _CantTell
+
+
+def _units_agree(q: dict) -> bool:
+    """False when a question's units show it's wrong: a value named as another quantity, or working whose units
+    don't give the answer's unit. True when they agree, and whenever the check can't tell."""
+    for m in _NAMED.finditer(q.get("q", "")):
+        if _base_unit(m.group(2)) != _NAMED_UNIT[m.group(3).lower()]:
+            return False
+    if q.get("kind") != "numeric" or not q.get("calc"):
+        return True
+    answer = _QUANTITY.search(q.get("a", ""))
+    want = answer and _base_unit(answer.group(2))
+    if not want:
+        return True
+    units = {}
+    for m in _QUANTITY.finditer(q.get("q", "")):
+        base = _base_unit(m.group(2))
+        if base:
+            units.setdefault(round(float(m.group(1)), 9), set()).add(_DIMS[base])
+    expr = q["calc"].replace("×", "*").replace("÷", "/").replace("^", "**").replace("√", "sqrt")
+    try:
+        got = _dims(ast.parse(expr, mode="eval").body, units)
+    except _Mismatch:
+        return False
+    except Exception:                                      # _CantTell, or arithmetic it can't read
+        return True
+    return got == _DIMS[want]
+
+
 def _slide_block(slide: str) -> str:
     return f'Slide:\n"""\n{slide}\n"""\n\n'
 
@@ -248,6 +367,8 @@ async def write(slide_text: str, avoid: list, style_no: int, avoid_answers: list
             if not can_calc or not _fix_numeric(out, slide):   # arithmetic we can't check: another kind
                 styles = [s for s in styles if "calculation" not in s] or styles
                 continue
+        if not _units_agree(out):                          # "40 A … in 3 s" for 40 C; "4 Ω of current"
+            continue
         # right arithmetic can still be the wrong formula ("(6+4+2)*12/3 = 48 V"): check those too
         shown = out["a"] + (f" (working: {out['work']})" if out["work"] else "")
         if await _supported(slide, q, shown):

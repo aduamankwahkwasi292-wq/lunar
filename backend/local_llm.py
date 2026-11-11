@@ -403,16 +403,18 @@ async def chat_stream(
     max_tokens: int | None = None,
     timeout: float = 600.0,
     info: dict | None = None,
+    grammar: str | None = None,
 ):
     """Async generator yielding token deltas as they are produced.
 
     `info` (optional) is filled with {"finish": "stop" | "length"} when the engine says why it
     stopped (the brain does), so callers know a reply ended by itself rather than ran out.
+    `grammar` (optional, GBNF) holds the reply to a shape; only the brain's engine enforces it.
     """
     b = _brain()
     if b:
         async for piece in b.chat_stream(messages, temperature=temperature, max_tokens=max_tokens,
-                                         timeout=max(timeout, 900.0), info=info):
+                                         timeout=max(timeout, 900.0), info=info, grammar=grammar):
             yield piece
         return
     messages = _text_only(messages)
@@ -507,6 +509,12 @@ async def health() -> dict:
     info = {"ok": False, "backend": BACKEND, "chat_model": CHAT_MODEL,
             "embed_model": EMBED_MODEL, "models": []}
     b = _brain()
+    if b and b.online():               # the student's own AI account (cloud.py): "Online · Claude"
+        last = b.cloud.LAST
+        return {**info, "ok": True, "backend": "brain", "chat_model": b.cloud.label(), "brain_state": "ready",
+                "error": "", "sees": b.sees(), "online": True, "model": b.cloud.model(),
+                "provider": b.cloud.provider(), "code": last.get("code", ""),
+                "fallback": bool(last.get("fallback")), "last_error": last.get("error", "") if last.get("ok") is False else ""}
     if b:
         st = b.status()
         card = b.BY_ID.get(st["selected"], {})

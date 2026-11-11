@@ -218,12 +218,13 @@ def _heading_note(text: str, slide_no: int) -> str | None:
 
 
 async def teach_slide_stream(slide_text: str, slide_no: int, total: int, length: str = "standard", image=None,
-                             exact=None):
+                             exact=None, prior: str = ""):
     """Stream the tutor's explanation of the slide (shown under the image).
 
     `image`: the slide's picture (data URL) when the brain can see — then a slide that is only a
     diagram or a photo can be taught too. `exact`: the slide's own questions that CUSTOM-Mx offers to work exactly
-    under the lesson — the brain explains how to tackle them but leaves the final numbers to CUSTOM-Mx."""
+    under the lesson — the brain explains how to tackle them but leaves the final numbers to CUSTOM-Mx.
+    `prior`: the lesson written so far (Interactive mode, after the student cut in): it carries on from there."""
     paragraphs, limit = _LESSON_LENGTH.get(length, _LESSON_LENGTH["standard"])
     words = _slide(slide_text).strip() if slide_text else ""
     ask = (f"Slide {slide_no} of {total}:\n\"\"\"\n{words}\n\"\"\"\n\nTeach this slide in under {limit} words." if words
@@ -233,7 +234,7 @@ async def teach_slide_stream(slide_text: str, slide_no: int, total: int, length:
         ask = ask.replace("\n\nTeach this slide", "\n\nThe app's maths engine will work the slide's question"
                           + ("s" if len(exact) > 1 else "") + " exactly, under your lesson. Explain the method and "
                           "the formula to use, but don't calculate the final numbers.\n\nTeach this slide", 1)
-    note = _heading_note(words, slide_no) if words and not image else None
+    note = _heading_note(words, slide_no) if words and not image and not prior else None
     if note:
         yield note
         return
@@ -243,8 +244,12 @@ async def teach_slide_stream(slide_text: str, slide_no: int, total: int, length:
     # (not "End with **Key idea:** …": on picture slides the brain opened with that label instead)
     messages = [_system(task, _SEE_SLIDE if image else ""),
                 {"role": "user", "content": _with_picture(ask, image)}]
+    if prior:                                              # as _stream_rounds carries on a cut-off answer
+        messages += [{"role": "assistant", "content": prior},
+                     {"role": "user", "content": "Continue from exactly where you left off and finish. "
+                                                 "Do not repeat anything you already wrote."}]
     ceiling = int(limit * 1.3)
-    text = ""
+    text = prior or ""
     async for piece in _stream_complete(messages, temperature=0.5, max_tokens=int(ceiling * 1.8) + 40,
                                         max_continuations=1, cont_tokens=60):
         text += piece
@@ -330,8 +335,10 @@ def _history_block(history, limit: int = 4) -> str:
     return "\n".join(lines)
 
 
-async def chat_stream(slide_text: str, user_message: str, history=None, focus=None, image=None, photo=False):
-    """Stream the tutor's reply to whatever the student says, on the current slide.
+async def chat_stream(slide_text: str, user_message: str, history=None, focus=None, image=None, photo=False,
+                      subject=None):
+    """Stream the tutor's reply to whatever the student says, on the current slide. `subject`: the whole deck's
+    text or word stems (`on_subject`), else the slide's own words decide whether a question is on the subject.
 
     `image`: a picture for a brain that sees — the slide's own (photo=False) or one the student
     attached (photo=True).
@@ -364,26 +371,139 @@ async def chat_stream(slide_text: str, user_message: str, history=None, focus=No
         f"Current slide:\n\"\"\"\n{_slide(slide_text)}\n\"\"\"\n\n"
         f'Student just said: "{user_message}"\n\n{how}'
     )
-    task = ("The student is studying the slide below. Answer directly first, using the slide; if it "
-            "doesn't cover the question, say so, then answer briefly from general knowledge.")
+    # The user (2026-11-11): a question on the subject that the slide doesn't cover is simply answered ("this
+    # isn't covered in the slide… I'll answer from general knowledge…" helps nobody), and a question that has
+    # nothing to do with the studies is still answered, then the student is nudged back to the lesson. Code decides
+    # which it is (`on_subject`: the question's words against the whole deck). Told both rules at once Smarts refused
+    # off-topic questions and nudged on-topic ones; shown the lesson with an off-topic question it still refused
+    # ("I cannot answer questions outside my subject matter") — so an off-topic question is asked on its own, and
+    # the nudge back is added here, as the upload reminder is when no slides are open.
+    if not on_subject(user_message, subject or slide_text):
+        topic = next((ln.strip(" •-–*#") for ln in _slide(slide_text).splitlines() if ln.strip(" •-–*#")), "")
+        # short: asked for "one or two sentences" with room for more, Smarts added lists and wrong details (dates,
+        # scores) after a right first sentence
+        messages = [_system("Answer the student's question correctly and plainly in one or two short sentences.",
+                            _SEE_PHOTO if (image and photo) else ""),
+                    {"role": "user", "content": _with_picture(f'Student asks: "{user_message}"', image if photo else None)}]
+        wrote = False
+        async for piece in without_disclaimers(_stream_complete(messages, temperature=0.3, max_tokens=90,
+                                                                max_continuations=1, cont_tokens=40)):
+            wrote = wrote or bool(piece.strip())
+            yield piece
+        if wrote:
+            yield "\n\n" + back_to_lesson(topic, len(history or []))
+        return
+    task = ("The student is studying the slide below and asks you something. Answer it directly and fully, like "
+            "a tutor who knows the subject: use the slide where it helps and your own knowledge where it doesn't. "
+            "Never say whether the slide covers it.")
     messages = [_system(task, (_SEE_PHOTO if photo else _SEE_SLIDE) if image else ""),
                 {"role": "user", "content": _with_picture(user, image)}]
-    async for piece in _stream_complete(messages, temperature=0.6, max_tokens=420,
-                                        max_continuations=2, cont_tokens=200):
+    async for piece in without_disclaimers(_stream_complete(messages, temperature=0.6, max_tokens=420,
+                                                            max_continuations=2, cont_tokens=200)):
         yield piece
+
+
+_BACK = ["Now, let's get back to {t}.", "Okay, back to {t} now.", "Right, let's get back to {t} — you're doing well."]
+
+
+def back_to_lesson(topic: str, turn: int = 0) -> str:
+    """The friendly nudge after an off-topic answer (varied, so it doesn't sound like a stuck record)."""
+    t = re.sub(r"\s+", " ", topic or "").strip().rstrip(".:;,")[:60] or "your lesson"
+    return _BACK[turn % len(_BACK)].format(t=t)
+
+
+# A word in the question that the deck also uses means the question is about what they are studying. 3-letter
+# words count ("Ohm", "law"); question words and filler don't.
+_FILLER = set("the and for are was were you your how why who whom what which when where does did can could would "
+              "should will shall may might must has have had having been being this that these those there their "
+              "they them with from into onto than then about also just like more most much many some such very "
+              "really please tell explain mean means meaning work works thing things something anything slide slides "
+              "lesson lecture note notes question answer know think want need help understand get got not but its "
+              "it's isn't aren't don't doesn't one two all any our out use used using way ways again simple simply "
+              "example examples part bit step steps okay yes sure now here still even well other another same "
+              "different called last next first point points again".split())
+
+
+def _stems(text: str) -> set:
+    return {w[:5] for w in re.findall(r"[a-z]{3,}", (text or "").lower()) if w not in _FILLER}
+
+
+def on_subject(question: str, subject) -> bool:
+    """Is the question about what the student is studying? `subject`: the deck's text (or its word stems). A
+    question with no content words of its own ("what does this mean?") is about the slide."""
+    words = _stems(question)
+    if not words:
+        return True
+    have = subject if isinstance(subject, (set, frozenset)) else _stems(subject)
+    return bool(words & have)
+
+
+# "The slide doesn't cover this, so from general knowledge: …" — told not to, Smarts still said it; the sentence
+# loses that clause and keeps the answer after it (or goes, if nothing is left).
+_DISCLAIMER = re.compile(
+    r"(?i)\b(?:(?:the|this|your|these) (?:slides?|lecture|notes?|material|video)s? (?:doesn'?t|does not|don'?t|do not|"
+    r"didn'?t|did not|isn'?t|is not) (?:directly |explicitly |specifically )?(?:cover|mention|address|discuss|say|"
+    r"explain|include|show|go into|talk about|state)|(?:not|isn'?t|aren'?t) (?:covered|mentioned|addressed|discussed|"
+    r"explained|included|shown|stated) (?:directly |explicitly )?(?:in|on|by) (?:the|this|your) (?:slides?|lecture|"
+    r"notes?|video)|(?:from|using|based on|drawing on|relying on|with) (?:my |your |our )?(?:own |general |outside |"
+    r"broader |wider )?knowledge|you (?:must|will have to|have to|need to|can) use your own knowledge|beyond (?:what|"
+    r"the scope of) (?:the|this) (?:slide|lecture|video))")
+_CLAUSE = re.compile(r"[:,;]|\s(?:but|however|so)\s")
+
+
+def _undisclaim(sentence: str) -> str:
+    s = sentence
+    for _ in range(3):
+        m = _DISCLAIMER.search(s)
+        if not m:
+            return s
+        after = _CLAUSE.search(s, m.end())
+        before = max(s.rfind(",", 0, m.start()), s.rfind(";", 0, m.start()))
+        if after and len(s[after.end():].split()) >= 4:
+            rest = re.sub(r"(?i)^(?:but|however|so|and|though|although|yet)\b[,\s]*", "", s[after.end():].strip())
+            s = rest[:1].upper() + rest[1:]
+        elif before > 0 and len(s[:before].split()) >= 4:
+            s = s[:before].rstrip() + "."
+        else:
+            return ""
+    return s
+
+
+_SENT_END = re.compile(r"(?<=[.!?])[\"'”’)\]*]*\s+|\n+")
+
+
+async def without_disclaimers(pieces):
+    """A stream with "the slide doesn't cover this… from general knowledge" taken out, a sentence at a time."""
+    held = ""
+    async for piece in pieces:
+        held += piece
+        while True:
+            m = _SENT_END.search(held)
+            if not m:
+                break
+            sentence, gap, held = held[:m.start()], held[m.start():m.end()], held[m.end():]
+            kept = _undisclaim(sentence)
+            if kept.strip():
+                yield kept + gap
+            elif "\n" in gap:
+                yield "\n" if "\n\n" not in gap else "\n\n"
+    if held:
+        kept = _undisclaim(held)
+        if kept.strip():
+            yield kept
 
 
 # ======================================================================
 # Chat with no slides open — general help, and always a nudge to upload
 # ======================================================================
 _NUDGES = [
-    "To really learn this, upload your slides or notes — drop the file on the board and "
+    "To really learn this, upload your slides or notes — drop the file in the middle of the screen and "
     "I'll teach it to you slide by slide.",
     "Got lecture slides or notes on this? Upload them and we'll go through them together, "
     "with quizzes to check you've got it.",
     "I teach best from your own material: upload your slides and I'll explain exactly what "
     "your lecturer covers.",
-    "Ready to study properly? Drop your slides or a PDF on the board and class starts straight away.",
+    "Ready to study properly? Drop your slides or a PDF in the middle of the screen and class starts straight away.",
 ]
 
 
@@ -393,7 +513,7 @@ def upload_nudge(turn: int, recent_decks=None) -> str:
     decks = [d for d in (recent_decks or []) if d]
     if decks and turn % 2 == 0:
         return (f"Want to carry on with “{decks[(turn // 2) % len(decks)]}”? Open it from "
-                "Uploads — or drop new slides on the board to start learning.")
+                "Uploads — or drop new slides in the middle of the screen to start learning.")
     return _NUDGES[(turn // 2 if decks else turn) % len(_NUDGES)]
 
 
@@ -410,15 +530,15 @@ async def free_chat_stream(user_message: str, history=None, recent_decks=None, i
     user = ("Recent conversation:\n" + convo + "\n\n") if convo else ""
     user += f'Student just said: "{user_message}"\n\nReply as MrSOLIS in under 150 words.'
     task = (
-        "No slides are open: answer from general knowledge, with numbered steps for a problem. If "
+        "No slides are open: answer directly from what you know, with numbered steps for a problem. If "
         "they only greet you, greet them in one sentence and ask what they are studying. Add no "
         "sign-off or follow-up question; the app adds one."
     )
     messages = [_system(task, _SEE_PHOTO if image else ""),
                 {"role": "user", "content": _with_picture(user, image)}]
     wrote = False
-    async for piece in _stream_complete(messages, temperature=0.6, max_tokens=360,
-                                        max_continuations=2, cont_tokens=200):
+    async for piece in without_disclaimers(_stream_complete(messages, temperature=0.6, max_tokens=360,
+                                                            max_continuations=2, cont_tokens=200)):
         wrote = wrote or bool(piece.strip())
         yield piece
     if wrote:
@@ -474,8 +594,8 @@ def video_messages(meta: dict, frames: list, user_message: str, history=None) ->
         tail += "Recent conversation:\n" + convo + "\n\n"
     tail += f'Student asks: "{user_message}"\n\nReply as MrSOLIS in under 150 words.'
     task = ("The student is asking about the video. Answer from what it shows and says, and give the time "
-            "(m:ss) of the part you use. If the video doesn't cover the question, say so, then answer "
-            "briefly from general knowledge.")
+            "(m:ss) of the part you use. If the video doesn't cover the question, just answer it from what you "
+            "know, without saying so.")
     return [_system(task, _SEE_VIDEO if frames else ""), {"role": "user", "content": content},
             {"role": "assistant", "content": _VIDEO_SEEN}, {"role": "user", "content": tail}]
 
@@ -488,8 +608,9 @@ async def video_chat_stream(meta: dict, frames: list, user_message: str, history
         return
     # questions about a video are about what it says and shows: keep the brain close to it (at 0.5 Speedy once
     # turned "fourteen forty" into 1400 rpm and a 0.4% slip, after three right runs)
-    async for piece in _stream_complete(video_messages(meta, frames, user_message, history), temperature=0.2,
-                                        max_tokens=420, max_continuations=2, cont_tokens=200):
+    async for piece in without_disclaimers(_stream_complete(video_messages(meta, frames, user_message, history),
+                                                            temperature=0.2, max_tokens=420, max_continuations=2,
+                                                            cont_tokens=200)):
         yield piece
 
 

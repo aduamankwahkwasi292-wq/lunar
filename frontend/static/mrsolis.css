@@ -802,37 +802,6 @@ body.focus .hint { display: none; }
 #chat-mic.starting { color: #fff; animation: mic-starting 0.9s ease-in-out infinite alternate; }
 #chat-exact.busy { color: #fff; animation: mic-starting 0.9s ease-in-out infinite alternate; pointer-events: none; }
 @keyframes mic-starting { from { opacity: 0.35; } to { opacity: 1; } }
-#chat-live:hover { color: #fff; }
-
-#live-panel {
-    position: absolute; inset: 0; z-index: 2;
-    display: flex; align-items: center; gap: 18px;
-    padding: 0 10px 0 22px; border-radius: inherit;
-    background: linear-gradient(90deg, rgba(10, 10, 11, 0.98), rgba(18, 18, 20, 0.98));
-}
-#live-panel[hidden] { display: none; }
-.chatbar.live { border-color: rgba(255, 255, 255, 0.85); box-shadow: 0 0 30px rgba(255, 255, 255, 0.14); }
-.live-bars { display: flex; align-items: center; gap: 4px; height: 34px; flex: none; }
-.live-bars i {
-    width: 4px; height: calc(6px + var(--h, 0) * 28px); border-radius: 4px; background: #fff;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); transition: height 0.09s linear;
-}
-.live-bars.speaking i { animation: talk 0.9s ease-in-out infinite; }
-.live-bars.speaking i:nth-child(2) { animation-delay: 0.12s; } .live-bars.speaking i:nth-child(3) { animation-delay: 0.24s; }
-.live-bars.speaking i:nth-child(4) { animation-delay: 0.36s; } .live-bars.speaking i:nth-child(5) { animation-delay: 0.48s; }
-.live-bars.speaking i:nth-child(6) { animation-delay: 0.6s; } .live-bars.speaking i:nth-child(7) { animation-delay: 0.72s; }
-@keyframes talk { 0%, 100% { height: 8px; } 50% { height: 30px; } }
-.live-bars.thinking i { animation: think 1.2s ease-in-out infinite; height: 8px; opacity: 0.35; }
-.live-bars.thinking i:nth-child(2n) { animation-delay: 0.3s; }
-@keyframes think { 50% { opacity: 1; } }
-.live-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.live-text b { font-size: 14.5px; font-weight: 600; color: #fff; letter-spacing: 0.02em; }
-.live-text span { font-size: 13px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.live-end {
-    height: 42px; padding: 0 18px; border-radius: 12px; flex: none;
-    background: #fff; color: #000; font-weight: 600; font-size: 14px;
-}
-.live-end:hover { background: #dcdde0; }
 
 body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
@@ -997,3 +966,339 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 .look-chip.on .mini-switch { background: #fff; }
 .look-chip.on .mini-switch::after { transform: translateX(12px); background: #000; }
 .hint #hint-text { max-width: calc(100% - 480px); }   /* never under the "Look at slides" switch */
+
+/* ══════════════════════════════════════════════════════════════════════
+   INTERACTIVE MODE — the class at the blackboard (mrsolis-class.js, mrsolis-board.js)
+   ══════════════════════════════════════════════════════════════════════ */
+.ic-start {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 2px; padding: 7px 16px 7px 13px;
+    border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.55); background: #fff; color: #000;
+    font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background 0.15s, transform 0.15s;
+}
+.ic-start[hidden] { display: none; }
+.ic-start:hover { background: #dcdde0; }
+.ic-start:active { transform: scale(0.97); }
+.ic-start .ico { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+
+#iclass { position: fixed; inset: 0; z-index: 70; background: #000; color: #fff; cursor: default; }
+#iclass[hidden] { display: none; }
+#ic-board { position: absolute; inset: 0; }
+.bb-svg { width: 100%; height: 100%; display: block; }
+.bb-stroke { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bb-pen { fill: #fff; filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); transition: opacity 0.2s; pointer-events: none; }
+
+#ic-top {
+    position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px;
+    padding: 16px 22px; background: linear-gradient(#000, rgba(0, 0, 0, 0)); font-size: 14px; color: #a9abb0;
+}
+#ic-title { color: #e9eaec; font-weight: 600; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ic-progress { flex: 1; }
+#ic-end {
+    padding: 7px 15px; border-radius: 999px; border: 1px solid var(--line-2); background: rgba(0, 0, 0, 0.6);
+    color: #d7d9dc; font: inherit; font-size: 13px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+#ic-end:hover { background: #fff; color: #000; border-color: #fff; }
+
+#ic-caption {
+    position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); max-width: min(900px, 78vw);
+    padding: 9px 18px; border-radius: 12px; background: rgba(0, 0, 0, 0.78); border: 1px solid var(--line);
+    font-size: 17px; line-height: 1.45; text-align: center; color: #eceded; pointer-events: none;
+}
+#ic-caption[hidden] { display: none; }
+#ic-caption.theirs { color: #c9a2ff; border-color: rgba(201, 162, 255, 0.4); }
+
+#ic-bar {
+    position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px 9px 18px; border-radius: 999px; background: rgba(18, 18, 19, 0.94); border: 1px solid var(--line-2);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); white-space: nowrap;
+}
+#ic-state { font-size: 14px; color: #d7d9dc; min-width: 236px; }
+#ic-ear { display: flex; align-items: center; gap: 3px; height: 26px; }
+#iclass:not([data-state="hearing"]):not([data-state="opening"]) #ic-ear { display: none; }   /* only while the hand is up */
+#ic-ear i { width: 3px; border-radius: 2px; background: #c9a2ff; height: calc(4px + 22px * var(--h, 0.08)); transition: height 0.09s; }
+#iclass[data-state="opening"] #ic-ear i { background: #8e9095; }
+#ic-hand {
+    display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 17px 0 12px; border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.6); background: #fff; color: #000; font: inherit; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: background 0.15s, transform 0.15s, box-shadow 0.2s;
+}
+#ic-hand[hidden] { display: none; }
+#ic-hand b { font-size: 20px; line-height: 1; font-weight: 400; }
+#ic-hand:hover { background: #e4e5e8; }
+#ic-hand:active { transform: scale(0.96); }
+#ic-hand.up { background: #c9a2ff; border-color: #c9a2ff; animation: ic-hand 1.6s ease-in-out infinite; }
+@keyframes ic-hand { 0%, 100% { box-shadow: 0 0 0 4px rgba(201, 162, 255, 0.22); } 50% { box-shadow: 0 0 0 10px rgba(201, 162, 255, 0.06); } }
+#ic-run, #ic-skip {
+    height: 36px; padding: 0 15px; border-radius: 999px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+#ic-run { border: 1px solid #6fe39a; background: #6fe39a; color: #04210f; }
+#ic-run:hover { background: #8cf0b2; }
+#ic-skip { border: 1px solid var(--line-2); background: none; color: #d7d9dc; }
+#ic-skip:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+#ic-run[hidden], #ic-skip[hidden] { display: none; }
+#iclass[data-state="offer"] #ic-state { color: #6fe39a; }
+#iclass[data-state="thinking"] #ic-state, #iclass[data-state="preparing"] #ic-state { animation: ic-think 1.3s ease-in-out infinite; }
+@keyframes ic-think { 50% { opacity: 0.45; } }
+.ic-btn {
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #d7d9dc;
+    background: none; border: 0; cursor: pointer; font: inherit; transition: background 0.15s, color 0.15s;
+}
+.ic-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.ic-btn .ico { width: 17px; height: 17px; }
+.ic-cc { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: #8e9095; }
+.ic-cc.on { color: #fff; }
+#ic-ask {
+    width: 230px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2);
+    background: rgba(255, 255, 255, 0.05); color: #fff; font: inherit; font-size: 13.5px; outline: none;
+}
+#ic-ask:focus { border-color: rgba(255, 255, 255, 0.5); width: 330px; }
+#ic-ask::placeholder { color: #7d8085; }
+@media (max-width: 900px) { #ic-state { min-width: 0; } #ic-ask { width: 150px; } }
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE CLASSROOM LAYOUT (2026-11-11): the slide in the middle, MrSOLIS on the right.
+   The user: "the slide is open in the middle, the sidebar is on the left and the explanation appears on the
+   right ... the typing bar and its buttons on the right under the explanation area, kinda like Copilot in
+   VS Code"; Interactive mode under the slide; Find anything, Settings and Focus kept. The slide used to sit
+   small on the silver board with the lesson under it ("impossible to read anything").
+   These rules come last and override the older ones above.
+   ══════════════════════════════════════════════════════════════════════ */
+:root { --top-h: 56px; --panel-w: clamp(330px, 29vw, 480px); }
+
+/* the title bar: MrSOLIS on the left, Find anything in the middle, Focus, Settings and the window on the right */
+#topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; padding-left: 18px; }
+.logo { width: 34px; height: 28px; }
+.brand { gap: 11px; min-width: 0; }
+.brand-name { font-size: 20px; }
+.brand-sub { font-size: 10.5px; margin-top: 3px; white-space: nowrap; }
+#topbar > .search { width: clamp(260px, 34vw, 500px); height: 36px; border-radius: 18px; padding-left: 14px; }
+.top-right { justify-self: end; }
+.win-ctrls { align-self: flex-start; }
+
+#stage { padding: 12px 16px 14px 16px; }
+#view-class { display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w); gap: 14px; }
+
+/* the middle: Slide 3 of 6, the slide, then Interactive mode under it */
+#class-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.lesson-head { flex: none; flex-direction: row; justify-content: center; gap: 14px; }
+#slide-label { font-size: 14.5px; }
+.head-bar { width: 180px; }
+
+/* the slide viewer: a dark stage, the page as big as it fits (the steel frame and silver surface are off) */
+#board {
+    flex: 1; min-height: 0; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 16px;
+    background: radial-gradient(ellipse at 50% 42%, #18191b 0%, #0c0c0d 62%, #070708 100%);
+}
+#board-frame { display: none; }
+#board-surface { inset: 0; clip-path: none; background: none; box-shadow: none; }
+#cr-board {
+    padding: 16px 74px 16px 16px; color: var(--ink);
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+#cr-board::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); }
+#board-content { min-height: 100%; display: flex; flex-direction: column; justify-content: safe center; }
+#slide-area .cr-slide { margin: 0; }
+.cr-slide-img { border-radius: 4px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.65); }
+#slide-area .cr-links { justify-content: center; margin: 10px 0 0; color: var(--dim); }
+#slide-area .cr-links a { color: #e6e7e9; }
+#slide-area .cr-links-label { color: var(--dim); }
+#slide-area .cr-empty { color: var(--dim); }
+/* a slide with no page picture: its words on a white sheet, like the printed slides */
+.cr-sheet {
+    width: 100%; max-width: 1000px; margin: 0 auto; padding: 28px 34px;
+    background: #fff; color: var(--board-ink); border-radius: 6px;
+    font-size: 17px; line-height: 1.62;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 20px 50px rgba(0, 0, 0, 0.65);
+}
+.cr-sheet ::selection { background: rgba(0, 0, 0, 0.82); color: #fff; }
+#ladder { right: 12px; }
+
+/* nothing open yet: the mark and how to start, light on the dark stage */
+#board-idle { color: rgba(255, 255, 255, 0.16); }
+#board-idle svg { filter: none; }
+#board-idle div, #board-idle p { text-shadow: none; }
+#board-idle p { color: var(--dim); }
+#board-idle .idle-help { color: #c9cbcf; pointer-events: auto; }
+#board-idle .idle-help:hover { color: #fff; }
+
+/* under the slide: Interactive mode, and "Look at slides" for a brain that sees */
+#class-under { flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 36px; }
+#class-under:not(:has(> button:not([hidden]))) { display: none; }
+#class-under .ic-start { margin-top: 0; }
+#class-under .look-chip { position: static; transform: none; }
+
+/* the right: MrSOLIS's lessons and answers, then a tip and the typing bar (like an editor's chat panel) */
+#talk-panel {
+    min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px;
+    border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, rgba(13, 13, 14, 0.94), rgba(5, 5, 6, 0.96));
+}
+#talk-scroll {
+    position: relative; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 8px 4px 4px;
+    color: #dcdde0; font-size: 15px; line-height: 1.62;
+    user-select: text; -webkit-user-select: text;
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+#talk-scroll::-webkit-scrollbar { width: 6px; }
+#talk-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 6px; }
+#talk-scroll ::selection { background: rgba(255, 255, 255, 0.86); color: #000; }
+body[data-board-text="large"] #talk-scroll { font-size: 16.5px; }
+body[data-board-text="xlarge"] #talk-scroll { font-size: 18.5px; }
+
+#talk-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    min-height: 100%; padding: 0 18px; text-align: center; color: var(--dim); font-size: 13.5px; user-select: none;
+}
+#talk-empty svg { width: 54px; height: 44px; color: rgba(255, 255, 255, 0.22); margin-bottom: 4px; }
+#talk-empty b { color: #e6e7e9; font-size: 15px; font-weight: 600; }
+#talk-area:not(:empty) + #talk-empty { display: none; }
+
+#talk-area { animation: rise 0.25s ease; }
+#talk-area p { margin: 0 0 0.75em; }
+#talk-area ul, #talk-area ol { margin: 0.2em 0 0.85em 1.3em; }
+#talk-area li { margin: 0.18em 0; }
+#talk-area strong { color: #fff; font-weight: 700; }
+#talk-area em { font-style: italic; color: #c9cbcf; }
+#talk-area h1, #talk-area h2, #talk-area h3 { color: #fff; font-weight: 700; line-height: 1.3; margin: 0.7em 0 0.35em; }
+#talk-area h1 { font-size: 1.22em; } #talk-area h2 { font-size: 1.12em; } #talk-area h3 { font-size: 1.04em; }
+#talk-area code { font-family: var(--mono); font-size: 0.88em; background: rgba(255, 255, 255, 0.08); padding: 1px 6px; border-radius: 4px; }
+#talk-area a { color: #fff; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+#talk-area .lesson { border-top: 1px solid var(--line); }
+#talk-area > .lesson:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+#talk-area .msg-user { color: #fff; background: rgba(255, 255, 255, 0.07); border-left-color: #fff; }
+#talk-area .msg-error { color: #e4e5e7; border-left-color: #6e7075; }
+#talk-area .msg-vid { background: rgba(255, 255, 255, 0.1); }
+#talk-area .msg-pic { border-color: var(--line-2); }
+#talk-area .cr-thinking { color: var(--dim); }
+#talk-area .cr-thinking i { background: #e6e7e9; }
+#talk-area .cr-figure figcaption { color: var(--dim); }
+#talk-area .part-save { color: var(--dim); border-color: var(--line-2); background: transparent; }
+#talk-area .part-save:hover, #talk-area .part-save.saved { background: #fff; color: #000; border-color: #fff; }
+#talk-area .part-read button, #talk-area .part-start button, #talk-area .exact-acts button {
+    color: #d7d9dc; border-color: var(--line-2); background: rgba(255, 255, 255, 0.04);
+}
+#talk-area .part-read button:hover, #talk-area .part-start button:hover, #talk-area .exact-acts button:hover {
+    background: rgba(255, 255, 255, 0.12); color: #fff;
+}
+#talk-area .part-read button.on, #talk-area .part-start button.primary, #talk-area .exact-acts button.primary {
+    background: #fff; color: #000; border-color: #fff;
+}
+#talk-area .part-start button.primary:hover, #talk-area .exact-acts button.primary:hover { background: #dcdde0; color: #000; }
+#talk-area .exact-card { border-color: var(--line-2); background: rgba(255, 255, 255, 0.03); color: #e4e5e7; }
+#talk-area .exact-card code { background: rgba(255, 255, 255, 0.07); }
+
+/* the tip, small, above the typing bar */
+#talk-panel .hint { flex: none; justify-content: flex-start; gap: 8px; padding: 0 4px; font-size: 12.5px; line-height: 1.45; text-align: left; }
+#talk-panel .hint .ico { width: 17px; height: 17px; flex: none; }
+#talk-panel .hint #hint-text { max-width: none; }
+
+/* the typing bar: what you type on top, its buttons under it, Send on the right */
+#talk-panel .chatbar {
+    flex: none; height: auto; flex-wrap: wrap; align-items: center; gap: 2px 4px;
+    padding: 6px 8px 8px 14px; border-radius: 14px;
+}
+#talk-panel #chat-input { flex: 1 1 100%; height: 40px; font-size: 15px; }
+#talk-panel .chatbar .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
+#talk-panel .chatbar .icon-btn .ico { width: 18px; height: 18px; }
+#talk-panel #chat-send { margin-left: auto; width: 46px; height: 38px; border-radius: 11px; }
+#talk-panel #cmd-menu { left: 0; right: 0; min-width: 0; max-width: none; }
+#talk-panel #pic-chip, #talk-panel #vid-chip { right: 0; max-width: 100%; }
+
+/* focus: no sidebar, so the slide and MrSOLIS have the whole window */
+body.focus #view-class { --panel-w: clamp(340px, 30vw, 520px); }
+body[data-board-text="large"] .cr-sheet { font-size: 19px; }
+body[data-board-text="xlarge"] .cr-sheet { font-size: 21px; }
+
+/* a short window (1366x768, 1280x720): the sidebar tightens so Progress, Tools and the assistant card all fit */
+@media (max-height: 820px) {
+    #sidebar { gap: 10px; padding-top: 12px; }
+    .nav-item { height: 38px; }
+    .progress-card { padding: 10px 16px 12px; }
+    .ring { width: 88px; height: 88px; }
+    .ring-text b { font-size: 21px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE ONLINE BRAIN (Settings → Brain, 2026-11-11): the student's own AI account, by API key
+   ══════════════════════════════════════════════════════════════════════ */
+#online-brain, #bp-online { margin-top: 14px; }
+.obcard h3 .ob-sub { margin-left: 6px; font-weight: 500; color: var(--dim); font-size: 14px; }
+.ob-intro { margin-top: 0; line-height: 1.5; }
+.ob-grid { display: grid; gap: 10px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; }
+@media (max-width: 900px) { .ob-grid { grid-template-columns: minmax(0, 1fr); } }
+.ob-field.ob-wide { grid-column: 1 / -1; }
+.ob-line a.btn { text-decoration: none; }
+.ob-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 12.5px; color: var(--dim); }
+.ob-field > .field, .ob-field > .select { width: 100%; }
+.ob-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ob-line .field, .ob-line .select { flex: 1; min-width: 0; }
+.ob-line .btn { flex: none; }
+.ob-check { align-self: end; display: flex; align-items: center; gap: 9px; height: 38px; font-size: 13px; color: #c9cbcf; cursor: pointer; }
+.ob-check input { width: 16px; height: 16px; accent-color: #fff; cursor: pointer; }
+.ob-status { flex: 1; min-width: 200px; font-size: 13px; line-height: 1.45; }
+.ob-good { display: inline-flex; align-items: center; gap: 6px; color: #fff; font-weight: 600; }
+.ob-good .ico { width: 15px; height: 15px; flex: none; }
+.ob-bad { display: inline-block; color: #e6e7e9; border-left: 2px dashed #8e9095; padding-left: 8px; }
+.ob-btns { display: inline-flex; gap: 8px; }
+.ob-note { font-size: 12px; line-height: 1.5; color: var(--faint); }
+/* the status chip stays one line ("Online · DeepSeek"); the full text is in its tooltip */
+.assistant > div:has(.as-status) { min-width: 0; }
+.as-status { min-width: 0; }
+#status-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── the ChatGPT plan (Sign in with ChatGPT; shown only once OpenAI accepts MrSOLIS) ── */
+.ob-offer { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+    padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); }
+.ob-offer > div { display: flex; flex-direction: column; gap: 3px; flex: 1 1 320px; }
+.ob-offer b { color: #fff; font-size: 14px; }
+.ob-offer span { font-size: 12.5px; color: var(--dim); line-height: 1.5; }
+.ob-wait { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #e4e5e7; }
+.cg-btn { height: 40px; padding: 0 18px; font-weight: 700; }
+.ob-account { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: #e4e5e7; }
+.ob-account .ico { width: 16px; height: 16px; flex: none; }
+.ob-account .btn { margin-left: auto; }
+.ob-link, #cg-welcome a { color: #fff; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ob-status .btn.primary { margin-left: 8px; text-decoration: none; }
+#cg-welcome { position: fixed; inset: 0; z-index: 61; display: grid; place-items: center; padding: 24px;
+    background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(6px); }
+#cg-welcome .cg-box { max-width: 460px; }
+#plan-badge { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 4px; font-size: 12.5px; color: #e4e5e7; }
+#plan-badge[hidden] { display: none; }
+#plan-badge a { color: #fff; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+#plan-badge.limit a { margin-left: auto; padding: 4px 10px; border-radius: 8px; background: #fff; color: #000; text-decoration: none; font-weight: 700; }
+
+/* ── zoom on the slide (2026-11-11): the bar at the viewer's bottom-left; a zoomed slide scrolls both ways ── */
+#zoom-bar {
+    position: absolute; left: 12px; bottom: 12px; z-index: 4;
+    display: flex; align-items: center; gap: 2px; padding: 3px;
+    border-radius: 12px; border: 1px solid var(--line-2);
+    background: rgba(10, 10, 11, 0.82); backdrop-filter: blur(8px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+#zoom-bar[hidden] { display: none; }
+#zoom-bar button {
+    height: 30px; min-width: 30px; padding: 0 6px; border-radius: 9px;
+    display: grid; place-items: center; color: #e4e5e7; font-size: 12.5px; font-weight: 600;
+    font-variant-numeric: tabular-nums; transition: background 0.15s, color 0.15s;
+}
+#zoom-bar button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); color: #fff; }
+#zoom-bar button:disabled { opacity: 0.35; cursor: default; }
+#zoom-bar .ico { width: 16px; height: 16px; }
+#zoom-level { min-width: 52px !important; }
+#slide-area .cr-slide { justify-content: safe center; }
+#cr-board.zoomed { overflow-x: auto; }
+#cr-board::-webkit-scrollbar { height: 6px; }
+#cr-board::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Think, by the chat box (2026-11-11): on = white; without an online brain = dimmed (a click says why) ── */
+.think-btn {
+    height: 32px; padding: 0 11px 0 9px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line-2); color: #d7d9dc; font-size: 13px; font-weight: 600;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.think-btn .ico { width: 16px; height: 16px; }
+.think-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.think-btn.on { background: #fff; color: #000; border-color: #fff; }
+.think-btn.on:hover { background: #e4e5e7; }
+.think-btn.unavailable { opacity: 0.45; }

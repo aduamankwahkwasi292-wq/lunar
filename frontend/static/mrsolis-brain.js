@@ -15,6 +15,7 @@
 'use strict';
 
 const BRAIN = { st: null, poll: null, mounts: new Set(), wasEmpty: false };
+const ONLINE = { st: null, pid: null, models: {}, mounts: new Set(), busy: false, note: '', poll: null };   // the online brain (below)
 
 const BRAIN_INTRO = 'Smaller brains are <b>faster</b> and use <b>less memory</b>, but make more mistakes. ' +
     'Bigger brains are <b>smarter</b>, but slower and need more memory. ' +
@@ -37,8 +38,9 @@ function brainCardHTML(c, st) {
             <button type="button" class="btn small" data-brain="cancel">Cancel</button></div>`;
     } else if (c.installed) {
         const loading = c.selected && st.state === 'starting';
+        const backup = ONLINE.st && ONLINE.st.on && ONLINE.st.ready;     // the online brain thinks; this one waits
         actions = `<div class="bc-row">${c.selected
-            ? `<span class="bc-inuse">${icon('check')}${loading ? 'In use — loading…' : 'In use'}</span>`
+            ? `<span class="bc-inuse">${icon('check')}${backup ? 'Backup — used without internet' : loading ? 'In use — loading…' : 'In use'}</span>`
             : `<button type="button" class="btn small primary" data-brain="use" data-id="${c.id}">Use this brain</button>`}
             <button type="button" class="btn small ghost" data-brain="remove" data-id="${c.id}">${icon('trash')}Remove</button></div>`;
     } else {
@@ -140,6 +142,7 @@ function showBrainPicker() {
         <p class="bp-sub">MrSOLIS can now <b>look at</b> your slides, diagrams and photos, not just read their words. Pick the brain that suits your computer — it downloads once, then works offline.</p>
         <p class="bp-intro">${BRAIN_INTRO}</p>
         <div id="bp-cards"></div>
+        <div id="bp-online"></div>
         <div class="bp-foot"><span id="bp-note" class="muted"></span>
             <button type="button" class="btn ghost" data-bp="later">Later</button>
             <button type="button" class="btn primary" data-bp="done" disabled>Start learning</button></div>
@@ -152,12 +155,13 @@ function showBrainPicker() {
         if (b.dataset.bp === 'later') showToast('You can choose a brain any time in Settings → Brain', 4500);
     });
     mountBrainCards($('bp-cards'));
+    mountOnlineBrain($('bp-online'));
 }
 
 function pickerUpdate() {
     if (!$('brain-picker') || !BRAIN.st) return;
     const st = BRAIN.st, dl = st.download || {};
-    const have = st.cards.some((c) => c.installed);
+    const have = st.cards.some((c) => c.installed) || !!(ONLINE.st && ONLINE.st.on && ONLINE.st.ready);
     $('brain-picker').querySelector('[data-bp="done"]').disabled = !have;
     $('bp-note').textContent = dl.state === 'downloading' ? 'Keep MrSOLIS open while the brain downloads.'
         : have && st.state === 'starting' ? 'Loading the brain…' : have ? 'Ready.' : '';
@@ -165,8 +169,268 @@ function pickerUpdate() {
 
 /** On start-up: no brain downloaded yet (a fresh install, or just updated from v1) → offer the chooser. */
 async function brainStartup() {
-    const st = await brainRefresh();
-    if (st && st.engine && !st.cards.some((c) => c.installed)) showBrainPicker();
+    const [st, on] = await Promise.all([brainRefresh(), onlineRefresh()]);
+    const online = !!(on && on.on && on.ready);
+    if (st && st.engine && !st.cards.some((c) => c.installed) && !online) showBrainPicker();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//   THE ONLINE BRAIN — the student's own AI account (backend/cloud.py, 2026-11-11)
+//   The user: "make MrSOLIS offline-first instead of fully offline … users can bring their own LLM API key".
+//   An API key from DeepSeek, OpenAI, Anthropic (Claude), Google Gemini, NVIDIA or any OpenAI-compatible server;
+//   MrSOLIS's own brain stays the backup when there's no internet. The key never comes back to the page.
+// ══════════════════════════════════════════════════════════════════════
+const ONLINE_INTRO = 'Use an AI account you already have, with its <b>API key</b>. MrSOLIS then thinks with it — the same ' +
+    'lessons, Interactive mode, quizzes and maths engines, with a stronger brain, all in this window. ' +
+    'Without internet, MrSOLIS goes back to the brain on this computer.';
+
+const onlineProv = (pid) => ONLINE.st.providers.find((p) => p.id === pid);
+const onlineWho = (p) => (p.id === 'custom' ? 'your AI server' : p.name);
+
+function onlineModelOptions(p) {
+    const list = ONLINE.models[p.id] || (p.model ? [{ id: p.model, name: p.model }] : []);
+    if (!list.length) return '<option value="">Load the models first</option>';
+    return list.map((m) => `<option value="${esc(m.id)}"${m.id === p.model ? ' selected' : ''}>`
+        + `${esc(m.name && m.name !== m.id ? `${m.name} · ${m.id}` : m.id)}</option>`).join('');
+}
+
+const USAGE_URL = 'https://chatgpt.com/settings/usage';
+const LIMIT_CODE = 'subscription_sharing_usage_limit_exceeded';
+
+/** The ChatGPT plan's rows (OpenAI's wording): sign in, signed in, or plan use not allowed. */
+function chatgptRowsHTML(st) {
+    const cg = st.chatgpt || {};
+    const flow = cg.flow || {};
+    if (!cg.signed_in) {
+        const waiting = flow.state === 'waiting';
+        return `<div class="ob-offer ob-wide"><div><b>Use your ChatGPT plan</b>
+                <span>Complete eligible AI requests in this app with usage included in your ChatGPT plan or credits balance.
+                It's separate from your MrSOLIS licence: MrSOLIS charges nothing for it.</span></div>
+            ${waiting ? `<span class="ob-wait">Finish signing in in your browser…
+                    <button type="button" class="btn small ghost" data-ob="cg-cancel">Cancel</button></span>`
+                : '<button type="button" class="btn primary cg-btn" data-ob="cg-signin">Continue with ChatGPT</button>'}
+            ${flow.state === 'error' || flow.state === 'declined' ? `<span class="ob-bad">${esc(flow.error)}</span>` : ''}</div>`;
+    }
+    return `<div class="ob-account ob-wide">${icon('check')}<span>Signed in to ChatGPT as <b>${esc(cg.email || 'your account')}</b></span>
+            <button type="button" class="btn small ghost" data-ob="cg-signout">Sign out</button></div>
+        ${cg.plan ? '' : `<div class="ob-offer ob-wide"><span class="ob-bad">ChatGPT plan use isn't turned on for MrSOLIS, so it
+            can't think with your plan.</span><button type="button" class="btn small" data-ob="cg-consent">Turn on plan use</button></div>`}`;
+}
+
+function onlineHTML() {
+    const st = ONLINE.st;
+    if (!st) return '';
+    const pid = ONLINE.pid || st.provider;
+    const p = onlineProv(pid);
+    const cg = p.signin ? (st.chatgpt || {}) : null;
+    const limit = cg && (st.last || {}).code === LIMIT_CODE;
+    const inUse = st.on && st.ready && st.provider === pid;
+    let status = ONLINE.note;
+    if (!status && inUse && limit) {
+        status = `<span class="ob-bad">Your ChatGPT plan has reached its limit for MrSOLIS for now.</span>
+            <a class="btn small primary" href="${USAGE_URL}" target="_blank" rel="noopener noreferrer">Manage usage</a>`;
+    } else if (!status && inUse && cg) {
+        status = `<span class="ob-good">${icon('check')}Using ChatGPT plan</span> ·
+            <a class="ob-link" href="${USAGE_URL}" target="_blank" rel="noopener noreferrer">Manage usage</a>`;
+    } else if (!status && inUse) {
+        const last = st.last || {};
+        status = last.ok === false
+            ? `<span class="ob-bad">${esc(last.error)}${last.fallback ? ' — the brain on this computer answered instead.' : ''}</span>`
+            : `<span class="ob-good">${icon('check')}In use — MrSOLIS thinks with ${esc(p.short)}</span>`;
+    } else if (!status && st.on && !st.ready) {
+        status = cg ? '<span class="ob-bad">Sign in with ChatGPT, load the models and pick one, then Save.</span>'
+            : '<span class="ob-bad">Add the key, load the models and pick one, then Save.</span>';
+    }
+    const canModel = !cg || (cg.signed_in && cg.plan);
+    return `<article class="bcard obcard${inUse ? ' in-use' : ''}">
+        <header><h3>Online brain <span class="ob-sub">your own AI account</span></h3>
+            <button type="button" class="switch${st.on ? ' on' : ''}" data-ob="toggle" aria-pressed="${st.on}"
+                title="${st.on ? 'Turn the online brain off' : 'Turn the online brain on'}"></button></header>
+        <p class="bc-for ob-intro">${ONLINE_INTRO}</p>
+        <div class="ob-grid">
+            <label class="ob-field"><span>AI company</span>
+                <select class="select" data-ob="provider">${st.providers.map((q) =>
+                    `<option value="${q.id}"${q.id === pid ? ' selected' : ''}>${esc(q.name)}</option>`).join('')}</select></label>
+            ${cg ? chatgptRowsHTML(st) : ''}
+            ${p.needs_base ? `<label class="ob-field ob-wide"><span>Server address</span>
+                <input class="field" data-ob="base" type="url" spellcheck="false" autocomplete="off"
+                    placeholder="https://…/v1, or http://127.0.0.1:1234/v1" value="${esc(p.base)}"></label>` : ''}
+            ${cg ? '' : `<label class="ob-field"><span>API key${p.key_optional ? ' (if the server needs one)' : ''}</span>
+                <span class="ob-line"><input class="field" data-ob="key" type="password" autocomplete="off" spellcheck="false"
+                    placeholder="${p.has_key ? `Saved (${esc(p.key_hint)}) — paste a new one to change it` : 'Paste your key — it stays on this computer'}">
+                ${p.keys_url ? `<a class="btn small ghost" href="${esc(p.keys_url)}" target="_blank" rel="noopener noreferrer">Get a key</a>` : ''}</span></label>`}
+            ${canModel ? `<label class="ob-field"><span>Model</span>
+                <span class="ob-line"><select class="select" data-ob="model">${onlineModelOptions(p)}</select>
+                <button type="button" class="btn small" data-ob="load">${icon('reset')}Load models</button></span></label>
+            <label class="ob-check"><input type="checkbox" data-ob="sees"${p.sees ? ' checked' : ''}>
+                It can see pictures, slides and video frames</label>` : ''}
+        </div>
+        <div class="bc-row"><span class="ob-status">${status || ''}</span>
+            ${canModel ? `<span class="ob-btns"><button type="button" class="btn small" data-ob="test">Test it</button>
+                <button type="button" class="btn small primary" data-ob="save">Save</button></span>` : ''}</div>
+        ${cg ? `<p class="ob-note">When it's on, your questions and the slides you study go to OpenAI over the internet and
+            use your ChatGPT plan; OpenAI's terms apply. MrSOLIS keeps the sign-in on this computer, locked to this Windows
+            account.</p>`
+            : `<p class="ob-note">When it's on, your questions and the slides you study are sent to ${esc(onlineWho(p))} over the
+            internet, and its prices and terms apply. The key is locked to this Windows account and is only ever sent
+            to ${esc(onlineWho(p))}.</p>`}
+        <p class="ob-note">${st.chatgpt ? 'Claude Pro and Max plans can\'t be plugged in: Anthropic allows them only in its own apps. A Claude API key works.'
+            : 'ChatGPT Plus and Claude Pro plans can\'t be plugged in: Anthropic allows Claude plans only in its own apps, and OpenAI must approve an app before it can use ChatGPT plans. An API key works for both.'}</p>
+    </article>`;
+}
+
+function onlineRender() {
+    for (const el of [...ONLINE.mounts]) {
+        if (!el.isConnected) { ONLINE.mounts.delete(el); continue; }
+        el.innerHTML = onlineHTML();
+    }
+    chatgptWelcome();                                 // the ChatGPT plan just went on: OpenAI's first-time notice
+}
+
+async function onlineRefresh() {
+    const before = ONLINE.st && ONLINE.st.chatgpt && ONLINE.st.chatgpt.flow && ONLINE.st.chatgpt.flow.state;
+    try { ONLINE.st = await api('/api/brain/online'); } catch (e) { return null; }
+    const cg = ONLINE.st.chatgpt;
+    const flow = cg && cg.flow && cg.flow.state;
+    onlineRender();
+    pickerUpdate();
+    clearTimeout(ONLINE.poll);
+    if (flow === 'waiting') ONLINE.poll = setTimeout(onlineRefresh, 1500);
+    if (before === 'waiting' && flow === 'done' && cg.signed_in && cg.plan) {   // just signed in: fetch the models
+        ONLINE.pid = 'chatgpt';
+        const card = [...ONLINE.mounts].map((el) => el.isConnected && el.querySelector('.obcard')).find(Boolean);
+        if (card) onlineAct(card, 'load');
+    }
+    chatgptWelcome();
+    return ONLINE.st;
+}
+
+/** OpenAI's first-time notice, once, when the ChatGPT plan starts thinking for MrSOLIS. */
+function chatgptWelcome() {
+    const st = ONLINE.st;
+    if (!st || !st.chatgpt || st.chatgpt.welcomed || !st.on || !st.ready || st.provider !== 'chatgpt' || $('cg-welcome')) return;
+    const box = document.createElement('div');
+    box.id = 'cg-welcome';
+    box.innerHTML = `<div class="bp-box cg-box" role="dialog" aria-labelledby="cg-title">
+        <h1 id="cg-title">You’re using your ChatGPT plan</h1>
+        <p class="bp-sub">Eligible usage in this app uses your ChatGPT plan. Manage usage in your
+            <a href="${USAGE_URL}" target="_blank" rel="noopener noreferrer">ChatGPT settings</a>.</p>
+        <div class="bp-foot"><button type="button" class="btn primary" data-cg="ok">Got it</button></div></div>`;
+    document.body.appendChild(box);
+    const done = async () => {
+        box.remove();
+        try { ONLINE.st = await api('/api/brain/chatgpt/welcomed', { method: 'POST' }); } catch (e) { /* shown again next time */ }
+    };
+    box.querySelector('[data-cg="ok"]').addEventListener('click', done);
+    box.addEventListener('click', (e) => { if (e.target === box) done(); });
+    document.addEventListener('keydown', function esc1(e) {
+        if (e.key === 'Escape' && $('cg-welcome')) { done(); document.removeEventListener('keydown', esc1); }
+    });
+}
+
+/** What is typed on the card now (a key only when one was pasted). */
+function onlineDraft(card) {
+    const q = (s) => card.querySelector(`[data-ob="${s}"]`);
+    const d = { provider: q('provider').value };
+    if (q('sees')) d.sees = q('sees').checked;
+    if (q('model') && q('model').value) d.model = q('model').value;
+    const key = q('key') && q('key').value.trim();
+    if (key) d.key = key;
+    if (q('base')) d.base = q('base').value.trim();
+    return d;
+}
+
+async function onlineAct(card, what) {
+    const say = (html) => { ONLINE.note = html; const s = card.querySelector('.ob-status'); if (s) s.innerHTML = html; };
+    if (ONLINE.busy) return;
+    ONLINE.busy = true;
+    try {
+        const d = onlineDraft(card);
+        if (what === 'cg-signin' || what === 'cg-consent') {
+            const r = await api('/api/brain/chatgpt/signin', { method: 'POST', body: { consent: what === 'cg-consent' } });
+            window.open(r.url, '_blank', 'noopener');            // the student's own browser (main.js)
+            ONLINE.pid = 'chatgpt';
+            ONLINE.note = '';
+            ONLINE.busy = false;
+            await onlineRefresh();
+            return;
+        }
+        if (what === 'cg-cancel') {
+            ONLINE.st = await api('/api/brain/chatgpt/cancel', { method: 'POST' });
+            onlineRender();
+            return;
+        }
+        if (what === 'cg-signout') {
+            if (!armed(card.querySelector('[data-ob="cg-signout"]'), 'Sign out?')) return;
+            const r = await api('/api/brain/chatgpt/signout', { method: 'POST' });
+            ONLINE.st = r;
+            ONLINE.models.chatgpt = null;
+            ONLINE.note = '';
+            onlineRender();
+            showToast(r.revoked ? 'Signed out of ChatGPT' : 'Signed out here — to be sure, also disconnect MrSOLIS in ChatGPT’s settings', 5000);
+            return;
+        }
+        if (what === 'load') {
+            say('<span class="muted">Asking for the models…</span>');
+            const r = await api('/api/brain/online/models', { method: 'POST', body: { provider: d.provider, key: d.key, base: d.base } });
+            ONLINE.models[d.provider] = r.models;
+            const p = onlineProv(d.provider);
+            const pick = r.models.some((m) => m.id === p.model) ? p.model : r.suggest;
+            card.querySelector('[data-ob="model"]').innerHTML = onlineModelOptions({ ...p, model: pick });
+            say(`<span class="ob-good">${icon('check')}${r.models.length} models — pick one, then Save</span>`);
+        } else if (what === 'save' || what === 'test') {
+            if (!d.model) { say('<span class="ob-bad">Load the models and pick one first.</span>'); return; }
+            ONLINE.st = await api('/api/brain/online', { method: 'POST', body: d });
+            ONLINE.pid = d.provider;
+            ONLINE.note = '';
+            onlineRender();
+            if (what === 'test') {
+                const fresh = [...ONLINE.mounts].find((el) => el.isConnected);
+                const card2 = fresh && fresh.querySelector('.obcard');
+                const say2 = (html) => { ONLINE.note = html; const s = card2 && card2.querySelector('.ob-status'); if (s) s.innerHTML = html; };
+                say2('<span class="muted">Asking it to say hello…</span>');
+                const r = await api('/api/brain/online/test', { method: 'POST' });
+                say2(r.ok ? `<span class="ob-good">${icon('check')}Works — first words in ${(r.ms / 1000).toFixed(1)} s: “${esc(r.reply)}”</span>`
+                    : `<span class="ob-bad">${esc(r.error)}</span>`);
+            } else {
+                showToast(ONLINE.st.ready && ONLINE.st.on ? `Saved — MrSOLIS now thinks with ${onlineProv(d.provider).short}` : 'Saved');
+            }
+        } else if (what === 'toggle') {
+            const want = !ONLINE.st.on;
+            const body = want ? { ...d, on: true } : { on: false };
+            if (want && !d.model) delete body.model;
+            ONLINE.st = await api('/api/brain/online', { method: 'POST', body });
+            ONLINE.note = '';
+            onlineRender();
+            if (want && !ONLINE.st.ready) showToast('Add the key, load the models and pick one, then Save', 4500);
+            else showToast(want ? `MrSOLIS now thinks with ${onlineProv(ONLINE.st.provider).short}` : 'Back to the brain on this computer');
+        }
+    } catch (e) {
+        say(`<span class="ob-bad">${esc(e.message)}</span>`);
+    } finally {
+        ONLINE.busy = false;
+    }
+    brainRefresh();                                   // the local card becomes "Backup", or "In use" again
+}
+
+/** Draw the online brain's card into `el` and keep it live. */
+function mountOnlineBrain(el) {
+    ONLINE.mounts.add(el);
+    el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-ob]');
+        const card = e.target.closest('.obcard');
+        if (!b || !card || b.tagName === 'SELECT' || b.tagName === 'INPUT') return;
+        onlineAct(card, b.dataset.ob);
+    });
+    el.addEventListener('change', (e) => {
+        if (e.target.dataset.ob === 'provider') {
+            ONLINE.pid = e.target.value;
+            ONLINE.note = '';
+            onlineRender();
+        }
+    });
+    if (ONLINE.st) el.innerHTML = onlineHTML();
+    onlineRefresh();
 }
 
 // ══════════════════════════════════════════════════════════════════════

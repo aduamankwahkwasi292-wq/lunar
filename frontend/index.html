@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MrSOLIS 3 — Study Oriented Local Intelligence System</title>
     <link rel="shortcut icon" href="static/icon.png" type="image/x-icon">
-    <link rel="stylesheet" href="static/mrsolis.css">
+    <link rel="stylesheet" href="static/mrsolis.css?v=3.1">
 </head>
 <body>
     <!-- Icons: Feather (MIT), drawn inline so the app needs nothing from the network. -->
@@ -25,6 +25,7 @@
             <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></symbol>
             <symbol id="i-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
             <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-think" viewBox="0 0 24 24"><path d="M11 3.5l1.7 4.6 4.6 1.7-4.6 1.7L11 16.1l-1.7-4.6L4.7 9.8l4.6-1.7z"/><path d="M18.2 14.3l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8z"/></symbol>
             <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.74V17h8v-2.26A7 7 0 0 0 12 2z"/></symbol>
             <symbol id="i-up" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></symbol>
             <symbol id="i-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
@@ -75,14 +76,16 @@
                 </div>
             </div>
 
+            <!-- Find anything sits in the middle of the title bar, like an editor's search -->
+            <div class="search">
+                <svg class="ico"><use href="#i-search"/></svg>
+                <input type="text" id="search-input" placeholder="Find anything..." autocomplete="off" spellcheck="false">
+                <button type="button" class="icon-btn small" id="hs-add" title="Upload slides"><svg class="ico"><use href="#i-plus"/></svg></button>
+                <div id="search-results"></div>
+            </div>
+
             <div class="top-right">
-                <div class="search">
-                    <svg class="ico"><use href="#i-search"/></svg>
-                    <input type="text" id="search-input" placeholder="Find anything..." autocomplete="off" spellcheck="false">
-                    <button type="button" class="icon-btn small" id="hs-add" title="Upload slides"><svg class="ico"><use href="#i-plus"/></svg></button>
-                    <div id="search-results"></div>
-                </div>
-                <button type="button" class="icon-btn" id="hs-focus" title="Focus mode (just the board)"><svg class="ico"><use href="#i-focus"/></svg></button>
+                <button type="button" class="icon-btn" id="hs-focus" title="Focus mode — hide the sidebar"><svg class="ico"><use href="#i-focus"/></svg></button>
                 <button type="button" class="icon-btn" id="hs-gear" data-page="settings" title="Settings"><svg class="ico"><use href="#i-gear"/></svg></button>
                 <div class="win-ctrls">
                     <button type="button" id="win-min" title="Minimize"><svg class="ico"><use href="#i-min"/></svg></button>
@@ -142,62 +145,86 @@
         <!-- ═══ STAGE ═══ -->
         <main id="stage">
           <div id="view-class" class="view">
-            <div class="lesson-head">
-                <div id="slide-label">No lesson open</div>
-                <div class="bar head-bar"><i id="slide-bar-fill"></i></div>
+            <!-- the slide, as large as it fits, with Interactive mode under it (layout of 2026-11-11: the user asked for
+                 the slide in the middle and the explanation on the right, "kinda like Copilot in VS Code") -->
+            <div id="class-main">
+                <div class="lesson-head">
+                    <div id="slide-label">No lesson open</div>
+                    <div class="bar head-bar"><i id="slide-bar-fill"></i></div>
+                </div>
+
+                <!-- The slide viewer (#board keeps its old name and parts: the frame and silver surface are hidden by CSS) -->
+                <section id="board">
+                    <svg id="board-frame" aria-hidden="true"></svg>
+                    <div id="board-surface">
+                        <div id="cr-board">
+                            <div id="board-idle" aria-hidden="true">
+                                <svg viewBox="0 0 44 36"><path d="M4 32V6l14 14L32 6v26" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="39" cy="29.5" r="3" fill="currentColor"/></svg>
+                                <div>MrSOLIS 3</div>
+                                <p>Drop your slides or notes here to start learning<br>— or ask me anything on the right</p>
+                                <button type="button" class="idle-help" data-page="help">New here? See how to use MrSOLIS</button>
+                            </div>
+                            <div id="board-content" hidden></div>
+                        </div>
+                    </div>
+                    <div id="ladder">
+                        <button type="button" id="hs-slide-prev" title="Previous slide (←)"><svg class="ico"><use href="#i-up"/></svg></button>
+                        <div id="ladder-ticks"></div>
+                        <button type="button" id="hs-slide-next" title="Next slide (→)"><svg class="ico"><use href="#i-down"/></svg></button>
+                        <button type="button" id="hs-target" title="Clear the board — take the slides and the chat off it"><svg class="ico"><use href="#i-target"/></svg></button>
+                    </div>
+                    <!-- the calculator, brought onto the board with "/calculator" (mrsolis-calc.js) -->
+                    <div id="board-calc" hidden></div>
+                    <!-- zoom the slide (mrsolis-wire.js): −, the level (click: fit), +; also Ctrl + wheel / pinch, Ctrl +, −, 0 -->
+                    <div id="zoom-bar" hidden>
+                        <button type="button" id="zoom-out" title="Zoom out (Ctrl −)"><svg class="ico"><use href="#i-min"/></svg></button>
+                        <button type="button" id="zoom-level" title="Fit the slide (Ctrl 0)">100%</button>
+                        <button type="button" id="zoom-in" title="Zoom in (Ctrl +)"><svg class="ico"><use href="#i-plus"/></svg></button>
+                    </div>
+                </section>
+
+
+                <div id="class-under">
+                    <!-- Interactive mode: MrSOLIS teaches the slides at a blackboard, out loud (mrsolis-class.js) -->
+                    <button type="button" id="ic-start" class="ic-start" hidden title="Interactive mode — MrSOLIS teaches your slides at a blackboard, out loud; raise your hand to ask"><svg class="ico"><use href="#i-play"/></svg>Interactive mode</button>
+                    <!-- let a brain that sees look at slides with pictures while it teaches (mrsolis-brain.js) -->
+                    <button type="button" id="look-chip" class="look-chip" hidden><svg class="ico"><use href="#i-eye"/></svg><span>Look at slides</span><i class="mini-switch"></i></button>
+                </div>
             </div>
 
-            <!-- The board: a steel frame (SVG, drawn to size by mrsolis-scene.js) around a silver writing surface -->
-            <section id="board">
-                <svg id="board-frame" aria-hidden="true"></svg>
-                <div id="board-surface">
-                    <div id="cr-board">
-                        <div id="board-idle" aria-hidden="true">
-                            <svg viewBox="0 0 44 36"><path d="M4 32V6l14 14L32 6v26" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="39" cy="29.5" r="3" fill="currentColor"/></svg>
-                            <div>MrSOLIS 3</div>
-                            <p>Drop your slides or notes here to start learning<br>— or ask me anything below</p>
-                            <button type="button" class="idle-help" data-page="help">New here? See how to use MrSOLIS</button>
-                        </div>
-                        <div id="board-content" hidden></div>
+            <!-- MrSOLIS's lessons and answers (mrsolis-wire.js renders #talk-area), then a tip and the typing bar -->
+            <aside id="talk-panel" aria-label="MrSOLIS's lessons and answers">
+                <div id="talk-scroll">
+                    <div id="talk-area"></div>
+                    <div id="talk-empty">
+                        <svg viewBox="0 0 44 36" aria-hidden="true"><path d="M4 32V6l14 14L32 6v26" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="39" cy="29.5" r="3" fill="currentColor"/></svg>
+                        <b>MrSOLIS explains here</b>
+                        <span>Open your slides and he teaches each one in this panel. Or just ask anything below.</span>
                     </div>
                 </div>
-                <div id="ladder">
-                    <button type="button" id="hs-slide-prev" title="Previous slide (←)"><svg class="ico"><use href="#i-up"/></svg></button>
-                    <div id="ladder-ticks"></div>
-                    <button type="button" id="hs-slide-next" title="Next slide (→)"><svg class="ico"><use href="#i-down"/></svg></button>
-                    <button type="button" id="hs-target" title="Clear the board — take the slides and the chat off it"><svg class="ico"><use href="#i-target"/></svg></button>
+                <!-- the ChatGPT plan is thinking (OpenAI's wording; backend/siwc.py, shown from checkHealth) -->
+                <div id="plan-badge" hidden><span id="plan-badge-text">Using ChatGPT plan</span>
+                    <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">Manage usage</a></div>
+                <p class="hint">
+                    <svg class="ico"><use href="#i-bulb"/></svg>
+                    <span id="hint-text">Highlight any part of the slide or this lesson, then tap <b>Explain</b> for a closer look — or <b>Solve</b> if it's a question.</span>
+                </p>
+                <div class="chatbar" id="chatbar">
+                    <div id="cmd-menu" hidden></div>
+                    <!-- a picture attached for a brain that sees (mrsolis-brain.js) -->
+                    <div id="pic-chip" hidden><img alt="The picture you attached"><span>Picture attached</span><button type="button" title="Remove the picture"><svg class="ico"><use href="#i-close"/></svg></button></div>
+                    <!-- a video (or recorded lecture) attached: MrSOLIS watches and listens (mrsolis-video.js) -->
+                    <div id="vid-chip" hidden><span class="vid-thumb"><img alt="" hidden><svg class="ico"><use href="#i-film"/></svg></span><span class="vid-text"><b class="vid-name"></b><small class="vid-state"></small><i class="vid-bar"><i></i></i></span><button type="button" title="Remove the video"><svg class="ico"><use href="#i-close"/></svg></button></div>
+                    <input type="text" id="chat-input" placeholder="Ask MrSOLIS 3 anything about this lesson..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="icon-btn" id="chat-pic" title="Attach a picture or a video — a photo of your notes, a diagram, a question, or a lecture video to ask about" hidden><svg class="ico"><use href="#i-image"/></svg></button>
+                    <!-- Make it exact: the question → a /CUSTOM-Mx command to check before sending (mrsolis-wire.js) -->
+                    <button type="button" class="icon-btn" id="chat-exact" title="Make it exact — turn your question into a CUSTOM-Mx command you can check before sending"><svg class="ico"><use href="#i-sigma"/></svg></button>
+                    <!-- Think: an online brain thinks before it answers (mrsolis-wire.js THINK) -->
+                    <button type="button" class="think-btn" id="chat-think" aria-pressed="false"><svg class="ico"><use href="#i-think"/></svg><span>Think</span></button>
+                    <button type="button" class="icon-btn" id="chat-mic" title="Transcription — speak and your words are typed here"><svg class="ico"><use href="#i-mic"/></svg></button>
+                    <button type="button" id="chat-send" title="Send"><svg class="ico send"><use href="#i-send"/></svg><svg class="ico stop"><use href="#i-stop"/></svg></button>
                 </div>
-                <!-- the calculator, brought onto the board with "/calculator" (mrsolis-calc.js) -->
-                <div id="board-calc" hidden></div>
-            </section>
-
-            <p class="hint">
-                <svg class="ico"><use href="#i-bulb"/></svg>
-                <span id="hint-text">Highlight any part of the slide or this lesson, then tap <b>Explain</b> for a closer look — or <b>Solve</b> if it's a question.</span>
-                <!-- let a brain that sees look at slides with pictures while it teaches (mrsolis-brain.js) -->
-                <button type="button" id="look-chip" class="look-chip" hidden><svg class="ico"><use href="#i-eye"/></svg><span>Look at slides</span><i class="mini-switch"></i></button>
-            </p>
-
-            <div class="chatbar" id="chatbar">
-                <div id="cmd-menu" hidden></div>
-                <!-- a picture attached for a brain that sees (mrsolis-brain.js) -->
-                <div id="pic-chip" hidden><img alt="The picture you attached"><span>Picture attached</span><button type="button" title="Remove the picture"><svg class="ico"><use href="#i-close"/></svg></button></div>
-                <!-- a video (or recorded lecture) attached: MrSOLIS watches and listens (mrsolis-video.js) -->
-                <div id="vid-chip" hidden><span class="vid-thumb"><img alt="" hidden><svg class="ico"><use href="#i-film"/></svg></span><span class="vid-text"><b class="vid-name"></b><small class="vid-state"></small><i class="vid-bar"><i></i></i></span><button type="button" title="Remove the video"><svg class="ico"><use href="#i-close"/></svg></button></div>
-                <input type="text" id="chat-input" placeholder="Ask MrSOLIS 3 anything about this lesson..." autocomplete="off" spellcheck="false">
-                <button type="button" class="icon-btn" id="chat-pic" title="Attach a picture or a video — a photo of your notes, a diagram, a question, or a lecture video to ask about" hidden><svg class="ico"><use href="#i-image"/></svg></button>
-                <!-- Make it exact: the question → a /CUSTOM-Mx command to check before sending (mrsolis-wire.js) -->
-                <button type="button" class="icon-btn" id="chat-exact" title="Make it exact — turn your question into a CUSTOM-Mx command you can check before sending"><svg class="ico"><use href="#i-sigma"/></svg></button>
-                <button type="button" class="icon-btn" id="chat-mic" title="Transcription — speak and your words are typed here"><svg class="ico"><use href="#i-mic"/></svg></button>
-                <button type="button" class="icon-btn" id="chat-live" title="Live — talk with MrSOLIS out loud"><svg class="ico"><use href="#i-live"/></svg></button>
-                <button type="button" id="chat-send" title="Send"><svg class="ico send"><use href="#i-send"/></svg><svg class="ico stop"><use href="#i-stop"/></svg></button>
-                <!-- Live voice mode (mrsolis-voice.js) -->
-                <div id="live-panel" hidden>
-                    <div class="live-bars" id="live-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-                    <div class="live-text"><b id="live-state">Listening…</b><span id="live-caption">Ask anything about this slide — or say “next slide”.</span></div>
-                    <button type="button" class="live-end" id="live-end">End live</button>
-                </div>
-            </div>
+            </aside>
           </div>
           <!-- Subjects, Notes, Uploads, Quizzes, History, Settings, Tools render here (mrsolis-pages.js) -->
           <div id="view-page" class="view" hidden></div>
@@ -210,17 +237,42 @@
         <button type="button" id="cr-solve-btn" class="sel-btn sel-solve">Solve</button>
         <button type="button" id="cr-note-btn" class="sel-btn sel-note" title="Save to Notes"><svg class="ico"><use href="#i-bookmark"/></svg></button>
     </div>
+    <!-- ═══ INTERACTIVE MODE: the class at the blackboard (mrsolis-class.js; the board is mrsolis-board.js) ═══ -->
+    <div id="iclass" hidden>
+        <div id="ic-board"></div>
+        <div id="ic-top">
+            <span id="ic-title"></span>
+            <span id="ic-progress"></span>
+            <button type="button" id="ic-end" title="End the class (Esc)">End class</button>
+        </div>
+        <div id="ic-caption" hidden></div>
+        <div id="ic-bar">
+            <!-- the microphone is on only while the hand is up (mrsolis-class.js icRaiseHand) -->
+            <button type="button" id="ic-hand" title="Raise your hand to ask a question (H)"><b aria-hidden="true">✋</b><span>Raise hand</span></button>
+            <div id="ic-ear" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            <span id="ic-state">Preparing the lesson…</span>
+            <!-- CUSTOM-Mx has set up a question: the student checks it on the board, then runs it (or skips) -->
+            <button type="button" id="ic-run" hidden title="Run it: CUSTOM-Mx works it exactly (R)">▶ Run it</button>
+            <button type="button" id="ic-skip" hidden title="Skip it (S)">Skip</button>
+            <button type="button" class="ic-btn" id="ic-back" title="Say that again"><svg class="ico"><use href="#i-reset"/></svg></button>
+            <button type="button" class="ic-btn" id="ic-pause" title="Pause (Space)"><svg class="ico"><use href="#i-pause"/></svg></button>
+            <button type="button" class="ic-btn ic-cc" id="ic-cc" title="Show what MrSOLIS is saying">CC</button>
+            <input type="text" id="ic-ask" placeholder="…or type a question" autocomplete="off" spellcheck="false">
+        </div>
+    </div>
     <div id="drop-veil" hidden><div>Drop to start class</div></div>
     <div id="mrsolis-toast" hidden></div>
     <input type="file" id="pic-input" hidden accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,video/*,audio/*,.mkv,.mp4,.webm,.mov,.avi,.m4v,.3gp,.wmv,.flv,.mpg,.mpeg,.ts,.mp3,.m4a,.wav,.aac,.ogg,.opus,.flac,.wma,.amr">
     <input type="file" id="file-input" hidden accept=".pdf,.pptx,.docx,.doc,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.webp">
 
-    <script src="static/mrsolis-scene.js"></script>
-    <script src="static/mrsolis-wire.js"></script>
-    <script src="static/mrsolis-pages.js"></script>
-    <script src="static/mrsolis-calc.js"></script>
-    <script src="static/mrsolis-voice.js"></script>
-    <script src="static/mrsolis-brain.js"></script>
-    <script src="static/mrsolis-video.js"></script>
+    <script src="static/mrsolis-scene.js?v=3.1"></script>
+    <script src="static/mrsolis-wire.js?v=3.1"></script>
+    <script src="static/mrsolis-pages.js?v=3.1"></script>
+    <script src="static/mrsolis-calc.js?v=3.1"></script>
+    <script src="static/mrsolis-voice.js?v=3.1"></script>
+    <script src="static/mrsolis-brain.js?v=3.1"></script>
+    <script src="static/mrsolis-video.js?v=3.1"></script>
+    <script src="static/mrsolis-board.js?v=3.1"></script>
+    <script src="static/mrsolis-class.js?v=3.1"></script>
 </body>
 </html>
