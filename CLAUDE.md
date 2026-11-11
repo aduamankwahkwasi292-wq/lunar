@@ -25,7 +25,11 @@ mrsolis-wire.js `applyZoom`): a picture gets a width, a sheet CSS `zoom`; kept a
 deck; a MutationObserver on #slide-area re-applies it to every new slide; `#cr-board.zoomed` scrolls sideways.
 **Box-select** on a slide picture (`marqueeEnd`): a word counts when the box covers half its width (or half the box)
 and 40% of its height (or of a thin box) — it used to need the word's centre inside, and the PDF's word boxes are
-taller than the letters, so a snug box round one word failed (the user, 2026-11-11; marquee-test.js). Before, the slide sat small on a silver board with the lesson
+taller than the letters, so a snug box round one word failed (the user, 2026-11-11; marquee-test.js).
+  The real cause of both reports: `backend/pdf.py` took PDFium's text and object positions as if every page started at
+  0,0. Books often don't (the student's 1118-page textbook: 42, 43.3), so every word box was 6.9 % right and 5.7 %
+  high and a box picked the words two lines below. `_origin()` (the crop box's corner) is now subtracted in
+  `words()` and `objects()`: on that page 96 % of word boxes sit on their ink (41 % before). Before, the slide sat small on a silver board with the lesson
 under it (the user: "impossible to read anything"). Check layouts at real window sizes with
 `Downloads\lunar\class-board-test\shoot.mjs` (headless Edge; the preview pane is too small). `frontend/index.html`
 loads:

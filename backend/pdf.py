@@ -70,13 +70,14 @@ class Doc:
         with _LOCK:
             page = self._page(i)
             height = page.get_size()[1]
+            ox, oy = _origin(page)
             tp = page.get_textpage()
             try:
                 chars = []
                 for k in range(tp.count_chars()):
                     ch = chr(raw.FPDFText_GetUnicode(tp.raw, k) or 32)
-                    box = tp.get_charbox(k, loose=True)          # font-height boxes: whole lines select cleanly
-                    chars.append((ch, box))
+                    left, bottom, right, top = tp.get_charbox(k, loose=True)   # font-height boxes: lines select cleanly
+                    chars.append((ch, (left - ox, bottom - oy, right - ox, top - oy)))
             finally:
                 tp.close()
         return _group(chars, height)
@@ -86,11 +87,13 @@ class Doc:
         with _LOCK:
             page = self._page(i)
             w, h = page.get_size()
+            ox, oy = _origin(page)
             images, paths = [], []
             for o in page.get_objects(max_depth=3):
                 if o.type not in (raw.FPDF_PAGEOBJ_IMAGE, raw.FPDF_PAGEOBJ_PATH):
                     continue
                 left, bottom, right, top = o.get_bounds()
+                left, bottom, right, top = left - ox, bottom - oy, right - ox, top - oy
                 box = (max(0.0, left), max(0.0, h - top), min(w, right), min(h, h - bottom))
                 if box[2] > box[0] and box[3] > box[1]:
                     (images if o.type == raw.FPDF_PAGEOBJ_IMAGE else paths).append(box)
@@ -140,6 +143,16 @@ class Doc:
         with _LOCK:
             bitmap = self._page(i).render(scale=dpi / 72, fill_color=(255, 255, 255, 255))
             return bitmap.to_pil().convert("RGB")
+
+
+def _origin(page) -> tuple:
+    """The lower-left corner of the page as drawn. PDFium draws a page from its crop box (the media box when there is
+    none) and measures it from that corner, but gives text and object positions in the PDF's own space — and a book's
+    pages often don't start at 0,0. The student's 1118-page textbook starts at (42, 43.3): every word box was 6.9 % of
+    the page too far right and 5.7 % too high, so a box drawn round "Find the negation of the proposition" picked the
+    words two lines below (2026-11-11). Slide decks start at 0,0, which is why it went unseen."""
+    left, bottom, _right, _top = page.get_cropbox()
+    return left, bottom
 
 
 def area(box) -> float:
