@@ -19,8 +19,11 @@ licence-check step (which moves gate.py aside) never touches the working folder:
 # once: pip install pyinstaller "rapidocr-onnxruntime>=1.2.3"   (Cython and VS Build Tools 2019 are installed)
 B=/c/Users/aduam/Downloads/lunar/build/src
 git clone -q . "$B"                                    # the committed code only
+mkdir -p "$B/models" "$B/runtime"                      # (models/ isn't in git: without this, cp put voice's files in models/)
 cp -r models/voice "$B/models/"; cp -r runtime/llama.cpp runtime/ffmpeg "$B/runtime/"
-cmd //c mklink /J "$(cygpath -w "$B/desktop/node_modules")" "$(cygpath -w "$PWD/desktop/node_modules")"
+MSYS_NO_PATHCONV=1 cmd /c mklink /J "$(cygpath -w "$B/desktop/node_modules")" "$(cygpath -w "$PWD/desktop/node_modules")"
+# (or PowerShell: New-Item -ItemType Junction -Path <B>\desktop\node_modules -Target <here>\desktop\node_modules)
+# Before deleting an old build\src: remove that junction first (cmd /c rmdir), or the delete reaches node_modules.
 cd "$B" && python scripts/build_gate.py --release && python -m PyInstaller lunar-backend.spec --noconfirm
 cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win nsis --publish never -c.electronDist=node_modules/electron/dist
 ```
@@ -33,10 +36,19 @@ downloads 31.7.7 (111 MB) and the app would run on a runtime nobody tested (happ
 Then check `desktop/release/` (the installer, its `.blockmap`, `latest.yml`) and publish them:
 
 ```bash
-gh release create v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft --title "MrSOLIS 3.0.1" --notes "…" \
+gh release create v3.0.1 --repo aduamankwahkwasi292-wq/lunar --target "$(git rev-parse HEAD)" --draft \
+  --title "MrSOLIS 3.0.1" --notes-file ../release-notes-3.0.1.md \
   release/Lunar-Setup-3.0.1.exe release/Lunar-Setup-3.0.1.exe.blockmap release/latest.yml
-gh release edit v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft=false    # once all three are uploaded
+gh release edit v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft=false --latest   # once all three are uploaded
 ```
+
+`--target` takes the **full** commit ID or a branch: a short ID is refused ("target_commitish is invalid", 3.1.0).
+`--latest` matters: installed copies read `latest.yml` and the website's Download button opens the latest release
+(the Android releases are made with `--latest=false`).
+
+**3.1.0 (2026-11-11, commit 874c331):** gate passed (start_test 3/3, crib_test 19/19, smoke_packaged 5/5, check_build
+ALL GOOD) plus `build\online_packaged_test.py` 6/6: the packaged engine answers through an online brain and its bundled
+Anthropic SDK reaches Anthropic. Installer 467 MB. No Store package was made for it.
 
 Bump `version` in desktop/package.json first (`npm version 3.0.1 --no-git-tag-version`), commit and push, and tag
 the release at that commit.
