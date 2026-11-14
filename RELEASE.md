@@ -50,6 +50,13 @@ gh release edit v3.0.1 --repo aduamankwahkwasi292-wq/lunar --draft=false --lates
 ALL GOOD) plus `build\online_packaged_test.py` 6/6: the packaged engine answers through an online brain and its bundled
 Anthropic SDK reaches Anthropic. Installer 467 MB. No Store package was made for it.
 
+**3.1.2 (2026-11-14, commit 6169eae):** gate passed (start_test 3/3, summary_test 27/27, smoke_packaged 5/5 — Smarts,
+now Gemma 4 E4B, ready in 12 s and answering offline in 6 s — Store package 3/3, check_build ALL GOOD). Installer
+490 MB, Store package 604 MB (store-listing/packages/MrSOLIS-3.1.2.appx). Two lessons: give smoke_packaged **full
+paths** (`mklink /J` refused a relative `--brains ../test-profile`), and `check_modules.py` lists the same ~40
+"missing" names with the old and the new dev-modules.json (aliases and dynamic names under Python 3.14: os.path,
+collections.abc, cv2.*, rapidocr's ch_ppocr_*) — compare against the previous list rather than expect "none".
+
 Bump `version` in desktop/package.json first (`npm version 3.0.1 --no-git-tag-version`), commit and push, and tag
 the release at that commit.
 
