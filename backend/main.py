@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field
 
 from backend.file_processor import extract_rich_slides, slide_plain_text
-from backend import local_llm, classroom, file_processor, questions, voice, finder, brain, quizgen, mathengine, video, boardclass
+from backend import local_llm, classroom, file_processor, questions, voice, finder, brain, quizgen, mathengine, video, boardclass, summary
 from backend import gate, guard
 from backend.mathengine import command as mx_command
 from backend.sqe import api as sqe
@@ -1609,28 +1609,15 @@ async def notes_delete(note_id: str):
     return {"ok": True}
 
 
-def _crib_markdown(deck_id: str) -> str:
-    session = _get_session(deck_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Deck not found.")
-    slides = session.get("slides") or []
-    return questions.build_crib_sheet([(i + 1, _grounding_text(s)) for i, s in enumerate(slides)])
-
-
-@app.get("/api/notes/crib/{deck_id}")
-async def notes_crib(deck_id: str):
-    """Formulas, definitions and laws pulled verbatim from the deck."""
-    return {"markdown": await asyncio.to_thread(_crib_markdown, deck_id)}
-
-
+# (The rule-built Exam Crib Sheet lived here until 2026-11-14; the user replaced it with /summarize, below.)
 @app.get("/api/notes/export/{deck_id}")
 async def notes_export(deck_id: str):
-    """Everything for one deck as a Markdown file: crib sheet, saved parts, own notes."""
+    """Everything for one deck as a Markdown file: saved parts, highlights, own notes."""
     deck = lib.deck(deck_id)
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found.")
     name = deck.get("title") or deck.get("filename") or "Deck"
-    parts = [f"# {name} — notes", "", await asyncio.to_thread(_crib_markdown, deck_id)]
+    parts = [f"# {name} — notes"]
     for kind, heading in (("saved", "Saved from lessons"), ("highlight", "Highlights"), ("mine", "My notes")):
         ns = [n for n in lib.notes(deck_id) if n.get("kind") == kind]
         if ns:
@@ -1641,6 +1628,122 @@ async def notes_export(deck_id: str):
     stem = re.sub(r"[^\w\- ]+", "", os.path.splitext(name)[0]).strip() or "notes"
     return Response("\n".join(parts), media_type="text/markdown; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{stem} - notes.md"'})
+
+
+# ---- /summarize -------------------------------------------------------
+# The brain summarises the deck one slide at a time (summary.py); code puts the summaries into a PDF that
+# lands in the chat. A run is a background job the chat polls; the student's own lessons and questions go first —
+# the run waits between slides while one is being written. Each slide's summary is cached (summary.Cache), so a
+# stopped run carries on where it stopped and a second /summarize of the same deck is instant.
+_summaries = {}
+
+
+class SummaryStart(BaseModel):
+    session_id: str
+
+
+def _summary_view(job: dict) -> dict:
+    return {k: job[k] for k in ("id", "state", "done", "total", "slide", "error", "name", "count")}
+
+
+async def _run_summary(job: dict):
+    deck_id = job["deck"]
+    try:
+        session = _get_session(deck_id)
+        slides = (session or {}).get("slides") or []
+        folder = os.path.join(DATA_DIR, "summaries", re.sub(r"[^\w\-]", "", deck_id) or "deck")
+        cache = summary.Cache(folder)
+        who = "online" if brain.online() else brain.selected()
+        look_ok = brain.sees() and lib.settings().get("look_at_slides", True)
+        entries = []
+        for idx, slide in enumerate(slides):
+            while _interactive_count > 0 and not job["cancel"]:     # a lesson or an answer is being written
+                await asyncio.sleep(0.5)
+            if job["cancel"]:
+                job["state"] = "cancelled"
+                return
+            job["slide"] = idx + 1
+            text = _grounding_text(slide)
+            if isinstance(slide, dict) and not slide.get("examinable", True):
+                job["done"] += 1
+                continue
+            picture = None
+            if look_ok and isinstance(slide, dict) and len(text.strip()) < 300:   # few words: the picture may carry it
+                if "_fig" not in slide:
+                    slide["_fig"] = await asyncio.to_thread(file_processor.slide_has_figure,
+                                                            session["file_path"], slide)
+                if slide["_fig"]:
+                    picture = await _slide_picture(deck_id, idx)
+            if not summary.worth_summarising(text, idx + 1, picture=bool(picture)):
+                job["done"] += 1
+                continue
+            key = summary.Cache.key(idx, text, who, bool(picture))
+            got = cache.get(key)
+            if got is None:
+                got = await summary.summarise_slide(text, idx + 1, len(slides), image=picture)
+                cache.put(key, got)
+            if got.strip():
+                entries.append((idx + 1, summary.slide_title(text), got))
+            job["done"] += 1
+        if not entries:
+            job.update(state="error", error="These slides have nothing to summarise — only titles or blank pages.")
+            return
+        path = os.path.join(folder, job["name"])
+        await asyncio.to_thread(summary.build_pdf, path, job["title"], entries)
+        job.update(state="done", path=path, count=len(entries))
+    except asyncio.CancelledError:                                  # Stop: the slide being written is dropped too
+        job["state"] = "cancelled"
+    except local_llm.LocalLLMError as e:
+        job.update(state="error", error=f"The brain stopped: {e}")
+    except Exception as e:                                          # never leave the chat spinning
+        job.update(state="error", error=f"The summary couldn't be made: {e}")
+
+
+@app.post("/api/summary/start")
+async def summary_start(req: SummaryStart):
+    if not brain.active():
+        raise HTTPException(status_code=409, detail="Download a brain first (Settings → Brain) — MrSOLIS needs one "
+                                                    "to summarise your slides.")
+    session = _get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Open your slides first.")
+    for job in _summaries.values():                                 # one run per deck at a time
+        if job["deck"] == req.session_id and job["state"] == "running":
+            return _summary_view(job)
+    deck = lib.deck(req.session_id) or {}
+    title = os.path.splitext(deck.get("title") or deck.get("filename") or "Slides")[0]
+    job = {"id": uuid.uuid4().hex[:12], "deck": req.session_id, "state": "running", "done": 0,
+           "total": len(session.get("slides") or []), "slide": 0, "error": "", "cancel": False,
+           "title": title, "name": summary.file_name(title), "count": 0, "path": ""}
+    _summaries[job["id"]] = job
+    job["task"] = asyncio.create_task(_run_summary(job))
+    return _summary_view(job)
+
+
+@app.get("/api/summary/{job_id}")
+async def summary_status(job_id: str):
+    job = _summaries.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="That summary is no longer running — type /summarize again.")
+    return _summary_view(job)
+
+
+@app.post("/api/summary/{job_id}/cancel")
+async def summary_cancel(job_id: str):
+    job = _summaries.get(job_id)
+    if job and job["state"] == "running":
+        job["cancel"] = True
+        job["task"].cancel()                  # closes the brain's request, so it stops writing at once
+    return {"ok": True}
+
+
+@app.get("/api/summary/{job_id}/file")
+async def summary_file(job_id: str):
+    job = _summaries.get(job_id)
+    if not job or job["state"] != "done" or not os.path.isfile(job["path"]):
+        raise HTTPException(status_code=404, detail="That summary file is gone — type /summarize again.")
+    return FileResponse(job["path"], filename=job["name"],
+                        media_type="application/pdf")
 
 
 # ---- Quizzes ----------------------------------------------------------

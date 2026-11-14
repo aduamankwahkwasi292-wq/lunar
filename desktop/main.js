@@ -246,7 +246,7 @@ function createMainWindow(port) {
   const width = Math.min(work.width, Math.max(1320, Math.round(height * UI_ASPECT)));
   mainWindow = new BrowserWindow({
     width, height, minWidth: Math.round(600 * UI_ASPECT), minHeight: 600, show: false,
-    frame: false, title: 'MrSOLIS 3',
+    frame: false, title: 'MrSOLIS 3.1',
     backgroundColor: '#010206', autoHideMenuBar: true, icon: appIcon(),
     webPreferences: {
       contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: DEVTOOLS,

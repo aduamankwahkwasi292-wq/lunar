@@ -27,6 +27,11 @@ _BLOCK = {F32: (1, 4), F16: (1, 2), BF16: (1, 2), Q8_0: (32, 34)}
 LINEAR = re.compile(r"^([va]\.blk\.\d+\.(attn_(q|k|v|qkv|out|k_rel)|ffn_(up|down|gate)(_1)?|conv_pw1|conv_pw2)"
                     r"|mm\.\d+)\.weight$")
 MARK = "mrsolis.kx"                    # written into the file so a converted reader is never converted twice
+# Gemma 4's hearing: its audio encoder and the projector after it. A sight-only reader leaves them out (Gemma's
+# 946 -> 219 MB; measured 2026-10-24: the same slide reading) — the downloaded original keeps them on disk, never
+# removed (the user, 2026-10-24: MrSOLIS must be able to hear videos one day; today Parakeet hears them).
+AUDIO = ("a.", "mm.a.")
+_KV_START = 24                         # the GGUF header before its keys: magic, version, tensor count, key count
 
 
 class _Reader:
@@ -111,11 +116,21 @@ def _as_f32(raw: bytes, t: int) -> np.ndarray:
     return (np.frombuffer(raw, np.uint16).astype(np.uint32) << 16).view(np.float32)       # BF16
 
 
-def convert_mmproj(src: str, dst: str) -> dict:
-    """Write the Q8_0 picture reader for `src` to `dst` (via dst.part, renamed when complete)."""
+def convert_mmproj(src: str, dst: str, sight_only: bool = False) -> dict:
+    """Write the Q8_0 picture reader for `src` to `dst` (via dst.part, renamed when complete). sight_only leaves
+    the hearing out (AUDIO) and marks the file as having none, as llama.cpp's loader reads it."""
     version, n_kv, blob, keys, tensors, data_start, align = _header(src)
     if MARK in keys:
         raise ValueError("already converted")
+    if sight_only:
+        tensors = [t for t in tensors if not t[0].startswith(AUDIO)]
+        if "clip.has_audio_encoder" in keys:
+            typ, _start, _end, vstart = keys["clip.has_audio_encoder"]
+            if typ != 7:
+                raise ValueError("unexpected clip.has_audio_encoder type")
+            blob = bytearray(blob)
+            blob[vstart - _KV_START] = 0                       # a one-byte bool, in place: false
+            blob = bytes(blob)
     plan = []
     for name, dims, t, off in tensors:
         n = int(np.prod(dims)) if dims else 1

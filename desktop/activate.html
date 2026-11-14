@@ -66,7 +66,7 @@
     <path d="M4 32V6l14 14L32 6v26" fill="none" stroke="url(#m)" stroke-width="5"/>
     <circle cx="39" cy="29.5" r="3" fill="#fff"/>
   </svg>
-  <h1 id="title">Activate MrSOLIS 3</h1>
+  <h1 id="title">Activate MrSOLIS 3.1</h1>
 
   <div class="view" id="vCode">
     <p id="why">Type the licence code you got when you bought MrSOLIS. This needs the internet once — after that MrSOLIS works offline.</p>
@@ -137,7 +137,7 @@
     let momoOrder = null;                                      // what to send where, for Mobile Money
     function show(view) {
       for (const v of ['vCode', 'vBuy', 'vMomo', 'vWait']) $(v).hidden = v !== view;
-      $('title').textContent = view === 'vCode' ? 'Activate MrSOLIS 3' : 'Buy MrSOLIS 3';
+      $('title').textContent = view === 'vCode' ? 'Activate MrSOLIS 3.1' : 'Buy MrSOLIS 3.1';
     }
     function setMethod(m) {
       method = m;

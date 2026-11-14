@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MrSOLIS 3 — Study Oriented Local Intelligence System</title>
+    <title>MrSOLIS 3.1 — Study Oriented Local Intelligence System</title>
     <link rel="shortcut icon" href="static/icon.png" type="image/x-icon">
     <link rel="stylesheet" href="static/mrsolis.css?v=3.1">
 </head>
@@ -71,7 +71,7 @@
                     <circle cx="39" cy="29.5" r="3" fill="#fff"/>
                 </svg>
                 <div class="brand-text">
-                    <div class="brand-name">MrSOLIS <span>3</span></div>
+                    <div class="brand-name">MrSOLIS <span>3.1</span></div>
                     <div class="brand-sub">Study Oriented Local Intelligence System</div>
                 </div>
             </div>
@@ -135,7 +135,7 @@
                     <path d="M24 52l8 5 8-5" fill="none" stroke="#e8e9eb" stroke-width="2"/>
                 </svg>
                 <div>
-                    <div class="as-name">MrSOLIS <span>3</span></div>
+                    <div class="as-name">MrSOLIS <span>3.1</span></div>
                     <div class="as-sub">Always here to help</div>
                     <div class="as-status"><i id="status-dot" class="starting"></i><span id="status-text">Starting…</span></div>
                 </div>
@@ -160,9 +160,11 @@
                         <div id="cr-board">
                             <div id="board-idle" aria-hidden="true">
                                 <svg viewBox="0 0 44 36"><path d="M4 32V6l14 14L32 6v26" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="39" cy="29.5" r="3" fill="currentColor"/></svg>
-                                <div>MrSOLIS 3</div>
+                                <div>MrSOLIS 3.1</div>
                                 <p>Drop your slides or notes here to start learning<br>— or ask me anything on the right</p>
                                 <button type="button" class="idle-help" data-page="help">New here? See how to use MrSOLIS</button>
+                                <p id="idle-brain" hidden><b>First, download a brain</b> — MrSOLIS needs one before you can use it.<br>
+                                    <button type="button" class="idle-help" id="idle-brain-go">Choose a brain</button></p>
                             </div>
                             <div id="board-content" hidden></div>
                         </div>
@@ -215,7 +217,7 @@
                     <div id="pic-chip" hidden><img alt="The picture you attached"><span>Picture attached</span><button type="button" title="Remove the picture"><svg class="ico"><use href="#i-close"/></svg></button></div>
                     <!-- a video (or recorded lecture) attached: MrSOLIS watches and listens (mrsolis-video.js) -->
                     <div id="vid-chip" hidden><span class="vid-thumb"><img alt="" hidden><svg class="ico"><use href="#i-film"/></svg></span><span class="vid-text"><b class="vid-name"></b><small class="vid-state"></small><i class="vid-bar"><i></i></i></span><button type="button" title="Remove the video"><svg class="ico"><use href="#i-close"/></svg></button></div>
-                    <input type="text" id="chat-input" placeholder="Ask MrSOLIS 3 anything about this lesson..." autocomplete="off" spellcheck="false">
+                    <input type="text" id="chat-input" placeholder="Ask MrSOLIS 3.1 anything about this lesson..." autocomplete="off" spellcheck="false">
                     <button type="button" class="icon-btn" id="chat-pic" title="Attach a picture or a video — a photo of your notes, a diagram, a question, or a lecture video to ask about" hidden><svg class="ico"><use href="#i-image"/></svg></button>
                     <!-- Make it exact: the question → a /CUSTOM-Mx command to check before sending (mrsolis-wire.js) -->
                     <button type="button" class="icon-btn" id="chat-exact" title="Make it exact — turn your question into a CUSTOM-Mx command you can check before sending"><svg class="ico"><use href="#i-sigma"/></svg></button>

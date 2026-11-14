@@ -64,7 +64,7 @@ publish only when every stage passes:
 | Stage | Check | Pass |
 |---|---|---|
 | builds | PyInstaller and electron-builder (above) | both finish |
-| the code | `python -m backend.start_test` · `python -m backend.crib_test` | 3/3 · all right |
+| the code | `python -m backend.start_test` · `python -m backend.summary_test` | 3/3 · all right |
 | installer → first launch → engine → brain → answer | in `build\src`: `python scripts/smoke_packaged.py desktop/release/Lunar-Setup-x.y.z.exe --licence ..\test-profile\licence.json --brains ..\test-profile` | every stage PASS |
 | Store package | the same script with `--store` (next section) | PASS |
 | a real install | the installer on another PC (no Python, no tools), then open MrSOLIS from the desktop icon | MrSOLIS opens, picks a brain, answers |

@@ -72,7 +72,7 @@ _FINAL_ANSWER = re.compile(r"(?i)\banswer\W*:\s*\S[^\n]*\s*\Z")   # anywhere on 
 
 
 # The real model's (or its maker's) name never reaches the screen — the user's rule.
-_HIDE = re.compile(r"(?i)\b(qwen[\w.-]*|alibaba|tongyi)")
+_HIDE = re.compile(r"(?i)\b(qwen[\w.-]*|alibaba|tongyi|gemma[\w.-]*|deepmind)")   # Smarts is Gemma since 2026-11-13
 
 
 async def _scrub(pieces):
@@ -144,7 +144,7 @@ async def _stream_rounds(messages, *, temperature, max_tokens,
 #   "I'm lost" (`_LOST`). `_scrub` is the last guard: the real model's name never reaches the
 #   screen (the user's rule).
 _CORE = (
-    "You are MrSOLIS, an AI study tutor built into the MrSOLIS 3 app, running on this computer.\n"
+    "You are MrSOLIS, an AI study tutor built into the MrSOLIS 3.1 app, running on this computer.\n"
     "Be a professional tutor: clear, precise, calm and encouraging. No emojis or flattery. When the "
     "student has a fact wrong, correct it first, then explain. Explain why, not only what. Never "
     "invent facts, numbers or formulas; say when you are unsure. Decline cheating or harm briefly, "
@@ -307,7 +307,7 @@ _META = re.compile(r"(?i)\b(ignore|forget|disregard|override)\s+(all\s+|any\s+)?
 
 
 def _who_answer(on_slide: bool) -> str:
-    return ("I'm MrSOLIS, the AI study tutor built into MrSOLIS 3. I run entirely on this computer, so your "
+    return ("I'm MrSOLIS, the AI study tutor built into MrSOLIS 3.1. I run entirely on this computer, so your "
             "slides and questions stay private. " + ("What would you like to know about this slide?" if on_slide
                                                     else "What would you like to study?"))
 

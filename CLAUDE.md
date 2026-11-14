@@ -60,8 +60,7 @@ loads:
   request and answers "next slide" with it. The student asked for this (2026-10-17): "MrSOLIS should continually
   tell them to upload their material and start learning".
 - `static/mrsolis-pages.js` — the sidebar pages, rendered into `#view-page`: Uploads (library), Subjects,
-  Notes (crib sheet + saved + own notes, Markdown export), Quizzes, History, Settings, Tools (solver,
-  formula sheet, study timer).
+  Notes (saved + own notes, Markdown export), Quizzes, History, Settings, Tools (solver, study timer).
 - `static/mrsolis-calc.js` — Tools → Calculator: a real scientific calculator (own recursive-descent parser, no
   model, no eval): DEG/RAD, 2nd for inverses, EXP, Ans, nCr/nPr, live preview, history tape. `calcEval()` is pure
   and can be tested with node (`require` the file). One shared calculator (CALC state) mounted with `mountCalc(root)`
@@ -91,7 +90,18 @@ loads:
   (decks, subjects, notes, quizzes, history events, settings). One deck per file: uploads are fingerprinted
   (sha256), a re-upload reopens the existing deck, and duplicates are merged on startup. Decks reopen after a restart from
   `DATA_DIR/study-cache/slides/` (never `cache/` — on Windows that is Electron's own browser `Cache`).
-  The crib sheet comes only from the slides (`questions.py`). **Quizzes (2026-10-20): written and marked by the
+  **/summarize (2026-11-14) replaced the rule-built Exam Crib Sheet** (Notes, Tools → Formula sheet, the notes
+  export; `questions.build_crib_sheet` and `crib_test` are gone). The user: the brain summarises the slides one at a
+  time, code pulls everything into a file, the student gets it in the chat, and while it runs it shows "Working,
+  Explaining, Summarising, Breaking Down, etc". `backend/summary.py` (prompt = `classroom._system` + "under 80 words"
+  next to the slide; `clean`: bullets, LaTeX → plain text, no preamble, `_HIDE`; `build_pdf`: A4 PDF typeset in code on PDFium (pypdfium2, already shipped) with Windows' Verdana — real text, ~0.3 MB; a
+  Word file for its first hour, then the user: "OK MAKE IT PDF") +
+  main.py `/api/summary/start|{id}|{id}/cancel|{id}/file` (a background job; waits between slides while a lesson or
+  answer is written; title/outline/closing slides skipped; a few-words slide with a figure is shown to a seeing brain;
+  every slide cached in `DATA_DIR/summaries/<deck>/slides.json` by text + brain, so a rerun is instant and a stopped
+  one carries on) + mrsolis-wire.js `summaryCommand` (the card cycles `SUM_VERBS` every 3 s, a bar, Stop, then the
+  PDF with Export) + How to use → "Summarise your slides". Tested 2026-11-14 with Middler: 6-slide deck → 5 summarised in about 1.5 min, rerun
+  0.4 s, Stop in 0.01 s. **Quizzes (2026-10-20): written and marked by the
   brain** (`backend/quizgen.py`; the user called the rule-built ones "really bad" and asked that the model write the
   questions, check answers against the slides, and never repeat a question). `plan` picks slides least-quizzed first,
   spread over the deck (a slide repeats only in a later round); `write` makes one question per call as strict JSON
@@ -109,9 +119,42 @@ loads:
   writer (cancel, mark, rewrite) — marking waited 25 s behind it. On the i5: first question ~17–37 s, marking 0–8 s.
   Without a brain, `questions.py` rules are still used. **How to use**: `PAGES.help` (sidebar + a link on the empty board).
 - **The brain (2026-10-19): a model that sees.** `backend/brain.py` replaces Qwen2.5-1.5B for chat/teaching. The
-  student picks a card (`CATALOG`), named by the user **Smarts** = Qwen3.5-2B (recommended) and **Speedy** =
-  Qwen3.5-0.8B. **Middler** (Qwen3-VL-2B) was dropped on 2026-10-29 — the user: "we'll find another model later for
-  Middler"; a saved pick of it falls back to an installed brain. **The real model names must never appear in the UI** (user's rule,
+  student picks a card (`CATALOG`), named by the user. **Since 2026-11-13: Speedy** = Qwen3.5-0.8B (our fine-tune),
+  **Middler** = Qwen3.5-2B (id `qwen3.5-2b` — it was Smarts until then; same id and files, so a student
+  who has it keeps it, renamed) and **Smarts** = Gemma 4 E4B Q4_K_M (id `gemma4-e4b`, `lmstudio-community/gemma-4-E4B-it-GGUF`,
+  pinned revision + SHA-256, 6.33 GB download; the user: "GEMMA 4 E4B CAN BE THE NEW SMARTS, AND THE CURRENT SMARTS
+  BECOMES MIDDLER", with low RAM and no lost intelligence). Google's quantization-aware `qat-mobile` file (3.2 GB) was
+  tried first and dropped (2026-11-13): its word table, which Gemma also uses as its output layer, is 2-bit there
+  (TQ2_0; Q6_K in Q4_K_M) — marking 34/50 vs 50/50, checking 42/50 vs 50/50, maths 2/11 vs 8/11. Only 2-bit (lost
+  marks) and 6-bit (kept them) were measured for that table; the per-layer table (PLE, 2.3 GB of Q6_K) stays on disk
+  and is the download's bulk. The first Middler (Qwen3-VL-2B, id `qwen3-vl-2b`) was dropped on
+  2026-10-29; a saved pick of it falls back to an installed brain. **No card is tagged "Recommended"** (the user
+  removed the tag, 2026-11-14); with no saved pick, `selected()` uses the last installed card. Until a brain (or the
+  online brain) is ready, the empty board shows "First, download a brain" under "New here?" (`#idle-brain`,
+  `idleBrainNote()` in mrsolis-brain.js; its button opens the chooser). **Per-card engine settings** (only Smarts uses them):
+  - **Gemma's hidden thinking.** Gemma opens a thought section (`<|channel>thought …`) by itself even with
+    `--reasoning off`, most of all when the reply must be JSON: with `--reasoning-budget 0`, 4 of 30 quiz questions
+    came back empty after 300 tokens of it (2026-11-12). Cause (2026-11-13, b11721): with `response_format`, the
+    engine's chat parser for Gemma builds a grammar that lets a thought section come before the JSON; banning the
+    opener token made Gemma spell `<|channel>thought` out in plain letters. The fix, three card keys:
+  - `engine`: `--skip-chat-parsing` — everything Gemma writes is the answer (no hidden section). In this mode the
+    engine **ignores `response_format`** and **rejects `json_schema`** (400: it feeds `<|turn>` through the grammar),
+    but applies a raw GBNF `grammar` from the first token.
+  - `strict_json`: JSON replies carry our own grammar — `backend/json_grammar.py` (the shapes MrSOLIS sends:
+    required-only objects, strings with maxLength, string enums, booleans, numbers, arrays with min/maxItems; else
+    "any JSON object"; llama.cpp's Python converter is gone from its repo). Tested on the pinned file: the 4
+    questions that came back empty, 2 seeds each, all valid (55–94 tokens), plus checks, marking and CUSTOM-Mx labels.
+  - `ban`: token ids it may never write (`logit_bias`): `<|channel>` (id 100 in the pinned file), so free text can't
+    open a thought either — with parsing skipped it would show. Never ban by text: llama-server tokenizes a text key
+    without special tokens, so it would ban `<` and `|`.
+  - `sample`: Google's sampling (top_p 0.95, top_k 64, min_p 0) instead of Qwen's `_SAMPLE`.
+  - `json_room`: 1.6× the tokens for JSON replies (Gemma lays JSON out on lines and writes maths as LaTeX: a quiz
+    question used 294 of its 300 tokens).
+  - `sight_only`: its picture reader is made without the hearing (`kx.convert_mmproj(sight_only=True)`: 946 → 219 MB,
+    tensors byte-identical to the reader tested on 2026-10-24). The hearing stays in the downloaded original
+    (`mmproj-BF16.gguf`), which is never tidied away (the user: keep the hearing on disk, never remove it).
+  Measured before the switch (195 tasks, `../../finetune/kx/kx_eval_tasks.py`, i5-13420H, CPU; results in
+  `../../finetune/kx/runs/tasks/`). **The real model names must never appear in the UI** (user's rule,
   2026-10-20): `status()` drops `model_name`, download errors never quote URLs, Settings shows only the brain's name —
   all Apache 2.0, GGUF Q4_K_M + mmproj, downloaded once (resumable `.part`, Range) into `DATA_DIR/brains/<id>/`.
   **Speedy is our fine-tune** (2026-10-22, `Downloads\lunar\finetune\train_speedy.py`, 2,600 Codex-written examples
@@ -120,7 +163,7 @@ loads:
   Its mmproj still comes from unsloth's repo. `status()` also drops `model_url`. A finished download deletes other
   `.gguf` files in that brain's folder (an older version). Held-out results: quiz checks 42/50 vs 33, broken quiz JSON
   6 → 0, lessons over the limit 7 → 0, maths unchanged (6/11 vs 7/11).
-  Gemma was left out on the user's word. Card figures are **estimates** and the UI says so; once a brain runs, its
+  Gemma was left out on the user's word until 2026-11-13 (now Smarts). Card figures are **estimates** and the UI says so; once a brain runs, its
   card adds "Measured on this computer" (tokens/s × 0.75 → words/s). It runs in the official **llama.cpp
   `llama-server`** (CPU build b11721, `runtime/llama.cpp/`, ggml picks the CPU's DLL) as a sidecar on 127.0.0.1:
   `-ngl 0 --reasoning off --jinja --image-max-tokens 768`, threads = cores/2, tied to the backend by a Job Object
@@ -472,9 +515,8 @@ answers a navigation question without opening `script.js` (≈2,800 lines) or `c
   cached old mrsolis-voice.js failed on the new page. Bump `?v=` when a release changes several scripts.
 - Keep the app fully local — never reintroduce cloud LLM/API-key/Deepgram paths.
 - Preserve every DOM id/class that `script.js` selects; CSS is restyle-only (additive), no renames.
-- **The crib sheet must quote the slides exactly** (`questions.formula_lines` / `definition_pairs`). Before
-  2026-10-30 it took only the letter before the last "=", so "1/R = 1/R1 + 1/R2" became "R = 1/R1 + 1/R2" and
-  "P = V I = I^2 R = V^2/R" became "R = V^2/R". Run `python -m backend.crib_test` after touching them.
+- **/summarize's file shows maths as written, never LaTeX** (`summary.plain_maths`: \frac → a/b, R_{1} → R1, $5
+  stays money). Run `python -m backend.summary_test` after touching summary.py.
 
 ## Releases (3.0.0, 2026-10-30)
 - This folder is a git checkout of github.com/aduamankwahkwasi292-wq/lunar (public), branch `main`; it used to be a

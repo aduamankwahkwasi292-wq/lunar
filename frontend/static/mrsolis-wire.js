@@ -232,7 +232,7 @@ const HINT_LESSON = 'Highlight any part of the slide or this lesson, then tap <b
 const HINT_NO_SLIDES = 'No slides yet? Drop your lecture slides or notes in the middle (or press <b>+</b>) and MrSOLIS will teach them here — or just ask anything below.';
 function chatPlaceholder() {
     if (typeof VID !== 'undefined' && VID.id) return 'Ask about this video — e.g. “Summarise it” or “What did he say about…?”';
-    return S.sessionId ? 'Ask MrSOLIS 3 anything about this lesson...' : 'Ask MrSOLIS anything — or upload your slides to start learning...';
+    return S.sessionId ? 'Ask MrSOLIS 3.1 anything about this lesson...' : 'Ask MrSOLIS anything — or upload your slides to start learning...';
 }
 function lessonUi() {
     $('hint-text').innerHTML = S.sessionId ? HINT_LESSON : HINT_NO_SLIDES;
@@ -321,6 +321,7 @@ function partHTML(p) {
         return `<div class="msg-user">${pic}${vid}${escapeHtml(p.text)}</div>`;
     }
     if (p.kind === 'error') return `<div class="msg-error">${escapeHtml(p.text)}</div>`;
+    if (p.kind === 'summary') return summaryHTML(p);
     const cls = p.kind === 'lesson' ? 'lesson' : 'msg-assistant';
     // a brain that sees takes a few seconds over a picture before its first word
     if (live && !p.text.trim()) {
@@ -817,10 +818,12 @@ async function ask(kind, text, image = null, video = null) {
 //   /calculator        the scientific calculator on the board (mrsolis-calc.js)
 //   /find <name>       find a study file on this computer by name and open it on the board
 //   /custom-mx <cmd>   CUSTOM-Mx's precise language: find … given …, solve, rearrange, convert (/mx for short)
+//   /summarize         the brain summarises the slides one at a time; the PDF lands in the chat (summary.py)
 const COMMANDS = [
     { name: 'calculator', alias: ['calc'], desc: 'A scientific calculator on the board', run: () => openBoardCalc() },
     { name: 'find', alias: ['open'], arg: 'file name', desc: 'Find your slides on this computer by name and open them', run: (q) => findAndOpen(q) },
     { name: 'custom-mx', alias: ['mx', 'cmx'], arg: 'command', desc: 'Talk to the maths engine directly — e.g. find power given V = 240 V, I = 5 A (or: help)', run: (q) => mxCommand(q) },
+    { name: 'summarize', alias: ['summarise', 'summary'], desc: 'MrSOLIS summarises these slides, one at a time, into a PDF', run: () => summaryCommand() },
 ];
 const cmdMenu = $('cmd-menu');
 const FIND = { q: '', results: [], sel: 0, timer: null, seq: 0 };   // live /find results under the chat box
@@ -842,7 +845,7 @@ function runCommand(text) {
     if (!m) return false;
     const cmd = m[1] ? findCommand(m[1]) : null;
     const arg = (m[2] || '').trim();
-    if (!cmd) { hideCmdMenu(); chatInput.value = ''; showToast(`No command “/${m[1]}” — try /calculator, /find or /mx`, 3500); return true; }
+    if (!cmd) { hideCmdMenu(); chatInput.value = ''; showToast(`No command “/${m[1]}” — try /calculator, /find, /mx or /summarize`, 3500); return true; }
     if (cmd.arg && !arg) { chatInput.value = `/${cmd.name} `; showCmdMenu(); chatInput.focus(); return true; }
     hideCmdMenu();
     chatInput.value = '';
@@ -940,6 +943,81 @@ async function mxCommand(text) {
         reply.text = `CUSTOM-Mx couldn't run that: ${e.message}`;
     }
     renderTalk();
+}
+
+/** /summarize: the brain summarises the slides on the board one at a time (backend summary.py); code puts them in a
+ *  PDF that lands in the chat. A background run the chat watches — the student can keep asking questions (they
+ *  go first; the run waits between slides). While it works, the card cycles through what MrSOLIS is doing (the user:
+ *  "it should show Working, Explaining, Summarising, Breaking Down, etc"). */
+const SUM_VERBS = ['Working', 'Reading', 'Explaining', 'Summarising', 'Breaking down', 'Condensing', 'Organising', 'Polishing'];
+
+function summaryHTML(p) {
+    if (p.state === 'done') {
+        return `<div class="msg-assistant sum-card"><div class="sum-file"><svg class="ico"><use href="#i-notes"/></svg>` +
+            `<div><b>${escapeHtml(p.name || 'Summary.pdf')}</b><span>PDF · ${p.count} slide${p.count === 1 ? '' : 's'} summarised</span></div>` +
+            `<button type="button" class="primary" data-sum="get:${p.job}"><svg class="ico"><use href="#i-download"/></svg>Export</button></div>` +
+            '<div class="sum-note">Your summary, one section per slide, written by MrSOLIS from your slides. Check anything important against the slides.</div></div>';
+    }
+    if (p.state !== 'running') {
+        return `<div class="msg-error">${escapeHtml(p.state === 'cancelled' ? 'Summary stopped.' : p.error || 'The summary couldn’t be made.')}</div>`;
+    }
+    const pct = p.total ? Math.floor((p.done / p.total) * 100) : 0;
+    return `<div class="msg-assistant sum-card" data-sum-job="${p.job}">` +
+        `<div class="cr-thinking"><i></i><i></i><i></i> <span class="sum-verb">${SUM_VERBS[p.verb % SUM_VERBS.length]}…</span></div>` +
+        `<div class="bc-progress sum-bar"><i style="width:${pct}%"></i></div>` +
+        `<div class="sum-meta"><span class="sum-where">${p.total ? `Slide ${Math.max(p.slide, 1)} of ${p.total}` : 'Starting…'}</span>` +
+        (p.job ? `<button type="button" data-sum="stop:${p.job}"><svg class="ico"><use href="#i-stop"/></svg>Stop</button>` : '') +
+        '</div></div>';
+}
+
+/** A running summary's card, updated in place each second — the whole chat isn't redrawn for it. */
+function summaryTick(p) {
+    const el = p.job && talkArea.querySelector(`[data-sum-job="${p.job}"]`);
+    if (!el) return;
+    el.querySelector('.sum-verb').textContent = `${SUM_VERBS[p.verb % SUM_VERBS.length]}…`;
+    el.querySelector('.sum-bar i').style.width = `${p.total ? Math.floor((p.done / p.total) * 100) : 0}%`;
+    el.querySelector('.sum-where').textContent = `Slide ${Math.max(p.slide, 1)} of ${p.total}`;
+}
+
+async function summaryCommand() {
+    S.parts.push({ kind: 'user', text: '/summarize' });
+    if (!S.sessionId) {
+        S.parts.push({ kind: 'error', text: 'Open your slides first — /summarize summarises the slides on the board.' });
+        renderTalk(true);
+        return;
+    }
+    const part = { kind: 'summary', state: 'running', job: '', done: 0, total: 0, slide: 0, verb: 0 };
+    S.parts.push(part);
+    renderTalk(true);
+    try {
+        const r = await fetch('/api/summary/start', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: S.sessionId }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || `error ${r.status}`);
+        Object.assign(part, { job: d.id, total: d.total, done: d.done, slide: d.slide, name: d.name, state: d.state });
+    } catch (e) {
+        Object.assign(part, { state: 'error', error: e.message });
+    }
+    renderTalk();
+    for (let tick = 1; part.state === 'running'; tick++) {
+        await new Promise((res) => setTimeout(res, 1000));
+        if (!S.parts.includes(part)) {                   // the chat was cleared (another deck): stop the run
+            fetch(`/api/summary/${part.job}/cancel`, { method: 'POST' }).catch(() => {});
+            return;
+        }
+        if (tick % 3 === 0) part.verb++;                 // a new word every 3 seconds
+        try {
+            const r = await fetch(`/api/summary/${part.job}`);
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || `error ${r.status}`);
+            Object.assign(part, { state: d.state, done: d.done, total: d.total, slide: d.slide, error: d.error,
+                name: d.name, count: d.count });
+        } catch (e) {
+            Object.assign(part, { state: 'error', error: e.message });
+        }
+        if (part.state === 'running') summaryTick(part);
+        else renderTalk(true);
+    }
 }
 
 /** "Make it exact" (Σ): a question in everyday words → a /CUSTOM-Mx command the student checks before sending.
@@ -1236,6 +1314,13 @@ $('cr-note-btn').addEventListener('click', () => {
     saveNote(text, 'highlight');
 });
 talkArea.addEventListener('click', (e) => {
+    const sum = e.target.closest('[data-sum]');
+    if (sum) {                                           // /summarize: export the PDF, or stop the run
+        const [act, job] = sum.dataset.sum.split(':');
+        if (act === 'get') download(`/api/summary/${job}/file`);
+        else fetch(`/api/summary/${job}/cancel`, { method: 'POST' }).catch(() => {});
+        return;
+    }
     const ex = e.target.closest('[data-exact]');
     if (ex) {                                            // a CUSTOM-Mx draft: run it, or put it in the chat box to edit
         const [pi, di, act] = ex.dataset.exact.split(':');

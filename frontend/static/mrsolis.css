@@ -567,6 +567,28 @@ button.tick:hover { background: #fff; width: 22px; }
 .exact-acts button:hover { background: rgba(255, 255, 255, 0.75); }
 .exact-acts button.primary { background: #000; color: #fff; border-color: #000; }
 .exact-acts button.primary:hover { background: #222; }
+
+/* /summarize in the chat: what MrSOLIS is doing + progress while it works, then the Word file to download */
+.sum-card {
+    margin: 10px 0 6px; padding: 10px 12px 11px; border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.22); background: rgba(255, 255, 255, 0.32);
+}
+.sum-card .cr-thinking { padding: 0 0 8px; }
+.sum-card .bc-progress { margin-top: 0; }
+.sum-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 12.5px; opacity: 0.85; }
+.sum-meta button, .sum-file button {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 10px; border-radius: 999px;
+    font: inherit; font-size: 12.5px; font-weight: 600; color: inherit; cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.28); background: rgba(255, 255, 255, 0.4);
+}
+.sum-meta button .ico, .sum-file button .ico { width: 14px; height: 14px; }
+.sum-file { display: flex; align-items: center; gap: 10px; }
+.sum-file > .ico { width: 26px; height: 26px; flex: none; }
+.sum-file > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sum-file b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sum-file span { font-size: 12.5px; opacity: 0.75; }
+.sum-file button.primary { background: #000; color: #fff; border-color: #000; }
+.sum-note { font-size: 12.5px; opacity: 0.8; margin-top: 8px; }
 .part-read { margin: 4px 0 6px; }
 .part-read button {
     display: inline-flex; align-items: center; gap: 6px;
@@ -817,7 +839,6 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
     padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line-2);
     background: rgba(255, 255, 255, 0.03);
 }
-.bcard.rec { border-color: rgba(255, 255, 255, 0.42); }
 .bcard.in-use { border-color: #fff; box-shadow: 0 0 0 1px #fff inset, 0 0 22px rgba(255, 255, 255, 0.12); }
 .bcard header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .bcard h3 { font-size: 18px; font-weight: 700; color: #fff; }
@@ -1187,6 +1208,11 @@ body[data-board-text="xlarge"] #talk-scroll { font-size: 18.5px; }
 #talk-area .part-start button.primary:hover, #talk-area .exact-acts button.primary:hover { background: #dcdde0; color: #000; }
 #talk-area .exact-card { border-color: var(--line-2); background: rgba(255, 255, 255, 0.03); color: #e4e5e7; }
 #talk-area .exact-card code { background: rgba(255, 255, 255, 0.07); }
+#talk-area .sum-card { border-color: var(--line-2); background: rgba(255, 255, 255, 0.03); color: #e4e5e7; }
+#talk-area .sum-meta button, #talk-area .sum-file button { color: #d7d9dc; border-color: var(--line-2); background: rgba(255, 255, 255, 0.04); }
+#talk-area .sum-meta button:hover, #talk-area .sum-file button:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+#talk-area .sum-file button.primary { background: #fff; color: #000; border-color: #fff; }
+#talk-area .sum-file button.primary:hover { background: #dcdde0; }
 
 /* the tip, small, above the typing bar */
 #talk-panel .hint { flex: none; justify-content: flex-start; gap: 8px; padding: 0 4px; font-size: 12.5px; line-height: 1.45; text-align: left; }

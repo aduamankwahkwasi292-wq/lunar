@@ -4,13 +4,13 @@
      Uploads   the library: continue a deck where you left off, rename,
                file it under a subject, delete
      Subjects  group decks by course
-     Notes     per deck: the auto crib sheet, saved lesson parts and
-               highlights, your own notes; export to Markdown
+     Notes     per deck: saved lesson parts and highlights, your own
+               notes; export to Markdown
      Quizzes   questions built from the slides themselves, graded,
                with past scores
      History   what you studied, asked and scored, day by day
      Settings  lesson length, board text size, motion, engine, data
-     Tools     step-by-step solver, formula sheet, study timer
+     Tools     step-by-step solver, study timer
 
    Uses the classroom's helpers from mrsolis-wire.js ($, S, showToast,
    formatLecture, streamNDJSON, startLesson, closeLesson, …).
@@ -290,15 +290,12 @@ PAGES.notes = async () => {
         notesDeck = (S.sessionId && deckById(S.sessionId)) ? S.sessionId : (LIB.decks[0] ? LIB.decks[0].id : 'general');
     }
     const general = notesDeck === 'general';
-    const [{ notes }, crib] = await Promise.all([
-        api('/api/notes' + (general ? '' : `?deck_id=${notesDeck}`)),
-        general ? Promise.resolve(null) : api(`/api/notes/crib/${notesDeck}`).catch(() => null),
-    ]);
+    const { notes } = await api('/api/notes' + (general ? '' : `?deck_id=${notesDeck}`));
     const mine = general ? notes.filter((n) => !n.deck_id) : notes;
     const label = { saved: 'Saved from a lesson', highlight: 'Highlight', mine: 'My note' };
     const actions = `<select class="select" data-change="deck" style="min-width:240px">${deckOptions(notesDeck, { general: true })}</select>
         ${general ? '' : `<button type="button" class="btn" data-act="export">${icon('download')}Export</button>`}`;
-    let html = head('Notes', 'Your crib sheet, the lesson parts and highlights you saved, and your own notes.', actions);
+    let html = head('Notes', 'The lesson parts and highlights you saved, and your own notes.', actions);
 
     html += `<div class="section-title">Write a note</div>
         <div class="panel stack"><textarea class="textarea" id="note-text" placeholder="Anything worth remembering…"></textarea>
@@ -315,9 +312,6 @@ PAGES.notes = async () => {
             <div class="note-body">${formatLecture(n.text)}</div></div>`).join('') + '</div>'
         : `<div class="panel empty" style="padding:26px"><b>Nothing saved yet</b>In class, hover over a lesson or answer and press <b style="display:inline;font-size:inherit">Save</b>, or highlight something and press the bookmark.</div>`;
 
-    if (crib && crib.markdown) {
-        html += `<div class="section-title">Crib sheet — straight from the slides</div><div class="silver">${formatLecture(crib.markdown)}</div>`;
-    }
     pageView.innerHTML = `<div class="page">${html}</div>`;
 
     CHANGE.deck = (el) => { notesDeck = el.value; refresh(); };
@@ -657,18 +651,32 @@ const GUIDE = [
             + 'Behemoth Group will keep updating it to make it better.'], 'Highly recommended'],
     ['notes', 'Keep what matters', [
         'Press <b>Save</b> on any lesson or answer, or the bookmark after highlighting, to keep it in <b>Notes</b>.',
-        'Notes holds a crib sheet for each deck, your saved parts and your own notes. Export them as a file.',
+        'Notes holds your saved parts and your own notes for each deck. Export them as a file.',
         '<b>Find anything</b> at the top finds any word or slide number in the lesson you have open.']],
+    ['download', 'Summarise your slides', [
+        'Open your slides, then type <b>/summarize</b> in the chat box and press Enter.',
+        'MrSOLIS goes through the deck one slide at a time and writes a short summary of each: the key points, with '
+            + 'every formula, definition and number as the slide gives it. Title, contents and “thank you” slides are skipped.',
+        'While it works, the card in the chat shows what MrSOLIS is doing — <b>Working</b>, <b>Reading</b>, '
+            + '<b>Explaining</b>, <b>Summarising</b>, <b>Breaking down</b>… — and which slide it is on. Press '
+            + '<b>Stop</b> to end it.',
+        'When it is done, your summary arrives in the chat as a <b>PDF</b>, one section per slide. Press '
+            + '<b>Export</b> to save it, print it or share it.',
+        'You can keep asking questions while it works; your questions are answered first. A long deck takes a while, '
+            + 'longest on Smarts. Summarising the same deck again is instant, and one you stopped carries on from where it stopped.',
+        'It needs a brain: download one in Settings → <b>Brain</b> first. MrSOLIS writes the summary from your slides, '
+            + 'but check anything important against them.']],
     ['grid', 'Tools and commands', [
-        '<b>Tools</b>: a scientific calculator, a step-by-step solver, a formula sheet and a study timer.',
+        '<b>Tools</b>: a scientific calculator, a step-by-step solver and a study timer.',
         'Type <b>/calculator</b> in the chat box to put the calculator on the board.',
+        'Type <b>/summarize</b> for a PDF summary of the slides on the board — see <b>Summarise your slides</b>.',
         'Type <b>/mx</b> to give the maths engine an exact command — e.g. <b>/mx find power given V = 240 V, I = 5 A</b>. It does exactly what you write, or tells you why it can’t. <b>/mx help</b> lists what it understands.',
         'Or type your question normally and press <b>Σ</b> (or <b>Make it exact</b> in the Solver): it is turned into a /mx command for you to check — fix anything that isn’t what you meant, then send it.',
         'CUSTOM-Mx, the engine behind <b>/mx</b> and <b>Σ</b>, is great, but not perfect. Behemoth Group will keep updating it to make it better.',
         'The focus button at the top hides everything but the board. <b>Esc</b> stops MrSOLIS writing or leaves focus mode.',
         'The button under the slide arrows clears the board; the deck stays in Uploads.']],
     ['gear', 'Make it yours', [
-        'Settings → <b>Brain</b>: choose <b>Speedy</b> or <b>Smarts</b>. Speedy is faster; Smarts is smarter.',
+        'Settings → <b>Brain</b>: choose <b>Speedy</b>, <b>Middler</b> or <b>Smarts</b>. Speedy is the fastest; Smarts is the smartest but slower and needs more memory; Middler sits between them.',
         'Change how long lessons are, the size of MrSOLIS\'s writing, and how fast MrSOLIS speaks.',
         'Under <b>Brain</b>, <b>Online brain</b> plugs in your own AI account with an API key — DeepSeek, OpenAI, Claude, Gemini, NVIDIA or any OpenAI-compatible server — for a stronger brain. Without internet, MrSOLIS uses its own.',
         'The <b>Look at slides</b> switch under the slide lets MrSOLIS read pictures and diagrams; turn it off for faster lessons on a slow computer.']],
@@ -731,7 +739,7 @@ PAGES.settings = async () => {
             <button type="button" class="btn" data-act="clear">${icon('trash')}Clear history</button></div>
     </div>`;
     html += `<div class="section-title">About</div><div class="panel"><dl class="kv">
-        <dt>App</dt><dd>MrSOLIS 3 — Study Oriented Local Intelligence System</dd>
+        <dt>App</dt><dd>MrSOLIS 3.1 — Study Oriented Local Intelligence System</dd>
         <dt>Engines</dt><dd class="words"><b>CUSTOM-Mx</b> works the maths exactly · <b>CUSTOM-SQE</b> makes maths practice from your own questions · <b>CUSTOM-Kx</b> keeps the brain light on this computer’s memory</dd>
         <dt>Privacy</dt><dd>Offline-first: with the brain on this computer, your slides and questions never leave it. Only if you turn on an online brain (your own AI account) do they go to that company.</dd>
     </dl>
@@ -775,11 +783,12 @@ const ENGINES = [
     ['CUSTOM-Kx', 'MrSOLIS’s memory engine. It keeps the brain light on this computer: memory no longer piles up '
         + 'through a long study session, the brain is never held twice, the brain’s picture reader is rebuilt at '
         + '8-bit on this computer the first time it starts (it reads slides the same, in about half the memory), '
-        + 'and slide pictures are sized so MrSOLIS reads them sooner. Measured on a laptop: Smarts needs about 30% '
-        + 'less memory once loaded, and about 45% less after ten slides.'],
+        + 'and slide pictures are sized so MrSOLIS reads them sooner. Measured on a laptop: Middler needs about 30% '
+        + 'less memory once loaded, and about 45% less after ten slides. Smarts keeps its hearing on disk until '
+        + 'MrSOLIS needs it, which saves about 320 MB.'],
 ];
 const CREDITS = [
-    ['The brains (Speedy, Smarts)', 'The models MrSOLIS thinks, writes and looks with. Speedy was trained further for MrSOLIS.',
+    ['The brains (Speedy, Middler, Smarts)', 'The models MrSOLIS thinks, writes and looks with. Speedy was trained further for MrSOLIS.',
         'Apache License 2.0, from their original authors', ['apache-2.0.txt']],
     ['llama.cpp', 'The AI engine that runs the brain on this computer.', 'MIT · LLVM OpenMP runtime: Apache 2.0 with LLVM exceptions',
         ['llama.cpp-mit.txt', 'llvm-openmp.txt'], 'github.com/ggml-org/llama.cpp'],
@@ -825,7 +834,7 @@ PAGES.terms = async () => {
 };
 
 PAGES.licences = async () => {
-    let html = head('Licences & credits', 'MrSOLIS 3 is built with open software and open models, all running on this computer. Thank you to everyone who made them.');
+    let html = head('Licences & credits', 'MrSOLIS 3.1 is built with open software and open models, all running on this computer. Thank you to everyone who made them.');
     html += '<div class="section-title">Made for MrSOLIS</div><div class="guide">' + ENGINES.map(([name, text]) =>
         `<div class="panel guide-card"><div class="tool-head">${icon('bulb')}<h3>${name}</h3></div><p class="lic-what">${text}</p></div>`).join('') + '</div>'
         + '<p class="lic-note">The CUSTOM engines and their names belong to Behemoth Group. Please don’t use the names anywhere '
@@ -853,15 +862,12 @@ PAGES.licences = async () => {
 };
 
 // ══════════════════════════════════════════════════════════════════════
-//   TOOLS — calculator (mrsolis-calc.js), solver, formula sheet, study timer
+//   TOOLS — calculator (mrsolis-calc.js), solver, study timer
 // ══════════════════════════════════════════════════════════════════════
 const SOLVER = { problem: '', verified: '', engine: '', text: '', busy: false, savedTo: '', exact: null };   // exact: CUSTOM-Mx's draft for a word problem   // savedTo: where this solution was saved
-let toolsDeck = null;
-
 PAGES.tools = async () => {
     await loadLib();
-    if (!toolsDeck || !deckById(toolsDeck)) toolsDeck = (S.sessionId && deckById(S.sessionId)) ? S.sessionId : (LIB.decks[0] || {}).id || null;
-    let html = head('Tools', 'A scientific calculator, a step-by-step solver, a formula sheet for any deck, and a study timer.');
+    let html = head('Tools', 'A scientific calculator, a step-by-step solver and a study timer.');
     html += `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(380px,1fr))">
         <div class="panel calc-panel" id="calc-panel" style="grid-row:span 2"></div>
         <div class="panel" style="grid-row:span 2">
@@ -888,17 +894,11 @@ PAGES.tools = async () => {
                     <button type="button" class="btn" data-act="treset">${icon('reset')}Reset</button></div>
             </div>
         </div>
-        <div class="panel">
-            <div class="tool-head">${icon('notes')}<h3>Formula sheet</h3></div>
-            ${LIB.decks.length ? `<select class="select" data-change="crib" style="width:100%;margin-bottom:12px">${deckOptions(toolsDeck)}</select><div class="silver" id="crib-out" style="max-height:420px;overflow:auto">Loading…</div>`
-                : '<div class="muted">Upload a deck to see its formulas, definitions and laws here.</div>'}
-        </div>
     </div>`;
     pageView.innerHTML = `<div class="page">${html}</div>`;
     mountCalc($('calc-panel'));
     drawSolver();
     drawTimer();
-    if (toolsDeck) loadCrib();
 
     ACT.solve = solve;
     ACT['solve-save'] = async (el) => {
@@ -946,21 +946,10 @@ PAGES.tools = async () => {
         el.disabled = false;
     };
     $('solve-in').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) solve(); });
-    CHANGE.crib = (el) => { toolsDeck = el.value; loadCrib(); };
     ACT.tmode = (el) => timerMode(el.dataset.mode);
     ACT.tgo = () => (TIMER.running ? timerPause() : timerStart());
     ACT.treset = () => timerMode(TIMER.mode);
 };
-
-async function loadCrib() {
-    const out = $('crib-out');
-    if (!out) return;
-    out.textContent = 'Loading…';
-    try {
-        const { markdown } = await api(`/api/notes/crib/${toolsDeck}`);
-        if ($('crib-out')) $('crib-out').innerHTML = formatLecture(markdown);
-    } catch (e) { if ($('crib-out')) $('crib-out').textContent = e.message; }
-}
 
 function drawSolver() {
     const out = $('solve-out');

@@ -11,6 +11,9 @@ Qwen3.5-2B is the recommended brain; Qwen3.5-0.8B for the weakest laptops. The s
 "users read their cards and pick their pref", with the cards' figures shown as estimates. Gemma 4
 (the one that also hears) was left out on purpose. The middle card, Middler (Qwen3-VL-2B), was
 dropped on 2026-10-29 (the user: "we'll find another model later for Middler").
+2026-11-13: Gemma 4 E4B (Q4_K_M; Google's 2-bit-table QAT file lost marks, see its card) became Smarts and Qwen3.5-2B became Middler — the
+user: "GEMMA 4 E4B CAN BE THE NEW SMARTS, AND THE CURRENT SMARTS BECOMES MIDDLER", with low RAM and no lost
+intelligence. Measured on the 195 MrSOLIS tasks (finetune/kx/kx_eval_tasks.py) before the switch.
 """
 
 import asyncio
@@ -46,12 +49,16 @@ RELEASES = "https://github.com/aduamankwahkwasi292-wq/mrsolis-brains/releases/do
 # (~9 words/s) and took 17.6 s to start answering about a 1024x576 picture; the ranges reach
 # down to slower 8 GB laptops. Once a brain runs, its card shows the speed measured here.
 # ram_gb is the brain's own memory WITH CUSTOM-Kx (KX_FLAGS + the 8-bit picture reader), measured on that laptop
-# (reports/CUSTOM-Kx initial report.md): Speedy levels off at about 1.1–1.2 GB over a 12-slide session, Smarts
-# stays flat at about 2.2 GB over 10 slides (2.24 GB with a video). Before CUSTOM-Kx the cards said 2.5 and 3.5 GB
-# (the user, 2026-10-29: "update the model memory requirement numbers to reflect the reduction").
+# (reports/CUSTOM-Kx initial report.md): Speedy levels off at about 1.1–1.2 GB over a 12-slide session, Middler
+# (then called Smarts) stays flat at about 2.2 GB over 10 slides (2.24 GB with a video). Before CUSTOM-Kx the cards
+# said 2.5 and 3.5 GB (the user, 2026-10-29: "update the model memory requirement numbers to reflect the reduction").
 # speed / smarts / slides are 1-5 dots, relative to each other. "name" is what the student sees
-# (the user named them Speedy / Middler / Smarts, 2026-10-20; Middler dropped 2026-10-29). The real model's name must never reach the
+# (the user named them Speedy / Middler / Smarts, 2026-10-20; Middler dropped 2026-10-29, back 2026-11-13 when Gemma
+# became Smarts). The real model's name must never reach the
 # screen (the user's rule): "model_name" is for us only — status() leaves it out, and errors never quote URLs.
+# A card may also set: "engine" (extra llama-server flags), "ban" (token ids it may never write), "sample" (its own
+# sampling instead of _SAMPLE), "json_room" (more tokens for JSON replies), "strict_json" (JSON replies carry our
+# own grammar, json_grammar.py) and "sight_only" (see kx_upgrade).
 CATALOG = [
     {
         "id": "qwen3.5-0.8b", "name": "Speedy", "model_name": "Qwen3.5 0.8B", "tagline": "Fastest and lightest",
@@ -70,21 +77,60 @@ CATALOG = [
                   "Makes more mistakes on hard maths and facts"],
         "licence": "Apache 2.0", "sees": True,
     },
-    # Middler (id "qwen3-vl-2b", Qwen3-VL 2B) sat here until 2026-10-29: dropped for now, a new model comes later.
-    # A student who had picked it falls back to an installed brain (selected()); its files are left alone.
+    # The old Middler (id "qwen3-vl-2b", Qwen3-VL 2B) sat here until 2026-10-29. A student who had picked it falls back
+    # to an installed brain (selected()); its files are left alone.
+    # Middler: this was Smarts until 2026-11-13. Same id and files, so a student who has it keeps it, renamed.
     {
-        "id": "qwen3.5-2b", "name": "Smarts", "model_name": "Qwen3.5 2B", "tagline": "Smartest",
-        "for": "8 GB laptops and up, when you can wait a little longer",
+        "id": "qwen3.5-2b", "name": "Middler", "model_name": "Qwen3.5 2B", "tagline": "Smart and quick",
+        "for": "8 GB laptops and up",
         "repo": "unsloth/Qwen3.5-2B-GGUF", "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
         "model": "Qwen3.5-2B-Q4_K_M.gguf", "mmproj": "mmproj-F16.gguf",
         "sha256": {"Qwen3.5-2B-Q4_K_M.gguf": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
                    "mmproj-F16.gguf": "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7"},
-        "download_gb": 1.95, "ram_gb": 2.3, "speed": 3, "smarts": 5, "slides": 5,
+        "download_gb": 1.95, "ram_gb": 2.3, "speed": 3, "smarts": 4, "slides": 4,
         "writing": "about 5–10 words a second", "picture": "about 15–35 seconds to look at a slide",
-        "facts": ["Best at reading slides, documents, charts and maths in pictures",
-                  "Much smarter than today's MrSOLIS (about 70% better on knowledge tests)",
-                  "Newest (2026)"],
-        "licence": "Apache 2.0", "sees": True, "recommended": True,
+        "facts": ["The best balance of speed and brain power",
+                  "Reads slides, documents, charts and maths in pictures",
+                  "About twice as fast as Smarts"],
+        "licence": "Apache 2.0", "sees": True,
+    },
+    # No card carries a "Recommended" tag any more (the user, 2026-11-14: "REMOVE THE 'Recommended' TAG ENTIRELY").
+    # Smarts: Gemma 4 E4B, Q4_K_M. Its picture reader is made sight-only on this computer ("sight_only"): the hearing
+    # stays in the downloaded original, on disk. Measured against Middler on the 195 MrSOLIS tasks (2026-11-13,
+    # i5-13420H, CPU, exactly the settings below; finetune/kx/runs/tasks/gemma4-q4km-app): quiz checking 50/50 vs
+    # 48/50, marking 50/50 vs 48/50, maths 7/11 vs 5/11, explanations within their length 27/27 vs 19/27, no broken
+    # JSON, no thinking leaks — at 6.1 vs 12.6 tokens a second (about half) and about 1 GB more memory.
+    # Google's quantization-aware "qat-mobile" file (3.2 GB, unsloth/gemma-4-E4B-it-qat-mobile-GGUF) was tried and
+    # dropped on 2026-11-13: its word table — which Gemma also uses to pick every word it writes — is 2-bit there
+    # (6-bit here), and it marked 15 of 50 right answers wrong (34/50), checked 42/50 and got 2/11 maths.
+    {
+        "id": "gemma4-e4b", "name": "Smarts", "model_name": "Gemma 4 E4B", "tagline": "Smartest",
+        "for": "Laptops with 12 GB of memory or more, when you can wait longer for answers",
+        "repo": "lmstudio-community/gemma-4-E4B-it-GGUF", "revision": "99210a71094c6aa8559f764e0cadedd7d89de94d",
+        "model": "gemma-4-E4B-it-Q4_K_M.gguf", "mmproj": "mmproj-gemma-4-E4B-it-BF16.gguf",
+        "sha256": {"gemma-4-E4B-it-Q4_K_M.gguf": "0ffb122c8b6921f13cbc34186e052524d0b5803b17f4867b7197a561400b3770",
+                   "mmproj-gemma-4-E4B-it-BF16.gguf": "bdfc4935857658dfdc8d1adebfa3897c2fec8b3323410f4f73ade36d6efa02be"},
+        "download_gb": 6.33, "ram_gb": 3.4, "speed": 2, "smarts": 5, "slides": 5,
+        "writing": "about 2–5 words a second", "picture": "about 20–45 seconds to look at a slide",
+        "facts": ["Best at maths, explaining and checking answers",
+                  "Reads slides, documents, charts and maths in pictures",
+                  "Slower: answers take about twice as long as Middler's"],
+        "licence": "Apache 2.0", "sees": True, "sight_only": True,
+        # Gemma opens a hidden "thought" section by itself, even with thinking off — most of all when the reply must
+        # be JSON: with --reasoning-budget 0, 4 of 30 quiz questions came back empty after 300 tokens of it
+        # (2026-11-12). llama-server's chat parser for Gemma lets that section come before the JSON, and with its
+        # opening token banned Gemma spelled the opener out in plain letters (2026-11-13). So:
+        # - "--skip-chat-parsing": everything Gemma writes is the answer — no hidden section to fill;
+        # - "strict_json": JSON replies carry their own grammar (json_grammar.py), applied from the first token, so
+        #   the reply can only be the JSON (in this mode the engine ignores response_format);
+        # - "ban": <|channel> (id 100 in this pinned file) can't open a thought in free text either — it would show.
+        "engine": ["--skip-chat-parsing"],
+        "ban": [100],
+        "strict_json": True,
+        "sample": {"top_p": 0.95, "top_k": 64, "min_p": 0.0},     # Google's advice for Gemma 4
+        # Gemma lays JSON out on several lines and writes maths as LaTeX (each \\ costs tokens): a quiz question
+        # used 294 of its 300 tokens, another ran out. JSON replies get 1.6x the room; they stop when done.
+        "json_room": 1.6,
     },
 ]
 BY_ID = {b["id"]: b for b in CATALOG}
@@ -103,7 +149,9 @@ def _files(b):
 
 
 def kx_upgrade(bid: str) -> bool:
-    """Make the brain's leaner picture reader, once (about 13 s for Smarts). True when it is there."""
+    """Make the brain's leaner picture reader, once (about 13 s for Middler, 8 s for Smarts). True when it is there.
+    A "sight_only" brain's reader leaves its hearing out: Gemma 4's audio encoder would hold 320 MB of RAM that
+    nothing in MrSOLIS uses (videos are heard by Parakeet). It stays in the downloaded original, on disk."""
     b = BY_ID.get(bid)
     if not b or not b.get("sees") or os.environ.get("LUNAR_KX", "1") == "0":
         return False
@@ -115,7 +163,7 @@ def kx_upgrade(bid: str) -> bool:
         return False
     try:
         from backend import kx
-        kx.convert_mmproj(src, dst)
+        kx.convert_mmproj(src, dst, sight_only=bool(b.get("sight_only")))
         return True
     except Exception:
         try:
@@ -128,8 +176,9 @@ def kx_upgrade(bid: str) -> bool:
 def _kx_tidy(b):
     """The engine has started with the leaner reader: free the 16-bit download's disk — only when the student's
     settings allow it (LUNAR_KX_TIDY=1). Off by default: on 2026-10-24 this deleted the user's 16-bit readers
-    without asking, and that is the user's call."""
-    if os.environ.get("LUNAR_KX_TIDY") != "1":
+    without asking, and that is the user's call. Never for a sight-only reader: the original is where the brain's
+    hearing is kept (the user: keep it on disk, never remove it)."""
+    if os.environ.get("LUNAR_KX_TIDY") != "1" or b.get("sight_only"):
         return
     d = os.path.join(BRAIN_DIR, b["id"])
     if _files(b)[1] == os.path.join(d, KX_MMPROJ):
@@ -295,7 +344,7 @@ class _Server:
                 "-c", os.environ.get("LUNAR_NUM_CTX", "8192"), "-t", str(_threads()), "-ngl", "0",
                 "-np", "1", "--reasoning", "off", "--no-webui", "--jinja", "--api-key", self.key,
                 "--image-max-tokens", os.environ.get("LUNAR_IMAGE_TOKENS", "768"),
-                *KX_FLAGS, "--log-file", log]
+                *KX_FLAGS, *b.get("engine", []), "--log-file", log]
         with self._lock:
             self.state, self.error, self.brain, self.port = "starting", "", bid, port
             try:
@@ -332,15 +381,12 @@ CHOICE = None          # the student's pick (Settings "brain"); main.py keeps th
 
 
 def selected() -> str:
-    """The brain to use: the student's choice, else the recommended / any installed one."""
+    """The brain to use: the student's choice, else an installed one."""
     choice = CHOICE
     if choice and installed(choice):
         return choice
     have = installed_ids()
-    if not have:
-        return ""
-    rec = next((b["id"] for b in CATALOG if b.get("recommended") and b["id"] in have), None)
-    return rec or have[-1]
+    return have[-1] if have else ""
 
 
 def online() -> bool:
@@ -404,12 +450,21 @@ _SAMPLE = {"top_p": 0.8, "top_k": 20, "min_p": 0.0, "presence_penalty": 1.5}   #
 
 
 def _payload(messages, temperature, max_tokens, stream, json_mode=False, schema=None, grammar=None):
+    b = BY_ID.get(SERVER.brain) or {}          # the brain that is running (ensure_ready() came first)
+    room = max_tokens or 768
+    if (schema or json_mode) and b.get("json_room"):
+        room = int(room * b["json_room"])
     p = {"messages": messages, "temperature": temperature, "stream": stream,
-         "max_tokens": max_tokens or 768, **_SAMPLE}
+         "max_tokens": room, **b.get("sample", _SAMPLE)}
+    if b.get("ban"):
+        p["logit_bias"] = [[t, False] for t in b["ban"]]     # false = never (llama-server)
     if stream:
         p["stream_options"] = {"include_usage": True}
         p["timings_per_token"] = False
-    if schema:                     # llama-server turns the schema into a grammar: the reply is always valid
+    if (schema or json_mode) and b.get("strict_json"):      # our own grammar, from the first token (json_grammar.py)
+        from backend import json_grammar
+        p["grammar"] = json_grammar.from_schema(schema) if schema else json_grammar.ANY_OBJECT
+    elif schema:                   # llama-server turns the schema into a grammar: the reply is always valid
         p["response_format"] = {"type": "json_schema", "json_schema": {"name": "reply", "schema": schema}}
     elif json_mode:
         p["response_format"] = {"type": "json_object"}
@@ -609,7 +664,9 @@ def status() -> dict:
     sel = selected()
     cards = []
     for b in CATALOG:
-        card = {k: v for k, v in b.items() if k not in ("repo", "model", "mmproj", "model_name", "model_url", "revision", "sha256")}
+        card = {k: v for k, v in b.items() if k not in ("repo", "model", "mmproj", "model_name", "model_url", "revision",
+                                                        "sha256", "engine", "ban", "sample", "json_room", "sight_only",
+                                                        "strict_json")}
         card["installed"] = installed(b["id"])
         card["selected"] = b["id"] == sel
         card["measured"] = SERVER.speed.get(b["id"])

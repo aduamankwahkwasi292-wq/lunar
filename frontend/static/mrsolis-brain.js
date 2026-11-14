@@ -44,15 +44,15 @@ function brainCardHTML(c, st) {
             : `<button type="button" class="btn small primary" data-brain="use" data-id="${c.id}">Use this brain</button>`}
             <button type="button" class="btn small ghost" data-brain="remove" data-id="${c.id}">${icon('trash')}Remove</button></div>`;
     } else {
-        actions = `<div class="bc-row"><button type="button" class="btn small${c.recommended ? ' primary' : ''}" data-brain="get" data-id="${c.id}"${otherBusy ? ' disabled' : ''}>` +
+        actions = `<div class="bc-row"><button type="button" class="btn small" data-brain="get" data-id="${c.id}"${otherBusy ? ' disabled' : ''}>` +
             `${icon('download')}Download · ${gbText(c.download_gb)}</button></div>`;
     }
     const failed = mine && (dl.state === 'error' || dl.state === 'cancelled') && !c.installed
         ? `<div class="bc-error">${dl.state === 'error' ? `The download stopped: ${esc(dl.error || 'no connection')}.` : 'Download cancelled.'} Press Download to carry on from where it stopped.</div>` : '';
     const measured = c.measured
         ? `<div class="bc-measured">${icon('check')}Measured on this computer: about ${Math.max(1, Math.round(c.measured.gen * 0.75))} words a second</div>` : '';
-    return `<article class="bcard${c.selected && c.installed ? ' in-use' : ''}${c.recommended ? ' rec' : ''}">
-        <header><h3>${esc(c.name)}</h3>${c.recommended ? '<span class="bc-tag">Recommended</span>' : ''}</header>
+    return `<article class="bcard${c.selected && c.installed ? ' in-use' : ''}">
+        <header><h3>${esc(c.name)}</h3></header>
         <p class="bc-tagline">${esc(c.tagline)}</p>
         <p class="bc-for">${esc(c.for)}</p>
         <div class="bc-meters">
@@ -94,6 +94,7 @@ async function brainRefresh() {
         return brainRefresh();
     }
     pickerUpdate();
+    idleBrainNote();
     const busy = dl.state === 'downloading' || st.state === 'starting';
     clearTimeout(BRAIN.poll);
     if (busy && (BRAIN.mounts.size || $('brain-picker'))) BRAIN.poll = setTimeout(brainRefresh, 1000);
@@ -166,6 +167,15 @@ function pickerUpdate() {
     $('bp-note').textContent = dl.state === 'downloading' ? 'Keep MrSOLIS open while the brain downloads.'
         : have && st.state === 'starting' ? 'Loading the brain…' : have ? 'Ready.' : '';
 }
+
+/** The empty board says "First, download a brain" until a brain — or the online brain — is ready (the user,
+ *  2026-11-14: tell users to download a model first, under "New here?"). Its button opens the chooser. */
+function idleBrainNote() {
+    const el = $('idle-brain');
+    if (!el || !BRAIN.st) return;
+    el.hidden = BRAIN.st.cards.some((c) => c.installed) || !!(ONLINE.st && ONLINE.st.on && ONLINE.st.ready);
+}
+$('idle-brain-go')?.addEventListener('click', showBrainPicker);
 
 /** On start-up: no brain downloaded yet (a fresh install, or just updated from v1) → offer the chooser. */
 async function brainStartup() {
@@ -294,6 +304,7 @@ async function onlineRefresh() {
     const flow = cg && cg.flow && cg.flow.state;
     onlineRender();
     pickerUpdate();
+    idleBrainNote();
     clearTimeout(ONLINE.poll);
     if (flow === 'waiting') ONLINE.poll = setTimeout(onlineRefresh, 1500);
     if (before === 'waiting' && flow === 'done' && cg.signed_in && cg.plan) {   // just signed in: fetch the models
