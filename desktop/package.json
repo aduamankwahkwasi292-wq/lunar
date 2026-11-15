@@ -76,6 +76,18 @@
         "to": "runtime/ffmpeg"
       },
       {
+        "from": "../runtime/sd.cpp",
+        "to": "runtime/sd.cpp",
+        "filter": [
+          "sd-cli*",
+          "*.dll",
+          "*.so",
+          "*.so.*",
+          "*.dylib",
+          "*.txt"
+        ]
+      },
+      {
         "from": "icon.ico",
         "to": "icon.ico"
       }

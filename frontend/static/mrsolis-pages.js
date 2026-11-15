@@ -434,7 +434,7 @@ function drawQuiz() {
                 <div class="score-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" stroke="rgba(0,0,0,.12)"/>
                     <circle cx="60" cy="60" r="52" stroke="#000" stroke-linecap="round" stroke-dasharray="${pct * C} ${C}"/></svg><b>${r.score}/${r.total}</b></div>
                 <div><h1 style="margin:0">${pct >= 0.8 ? 'Excellent work.' : pct >= 0.5 ? 'Good going.' : 'Keep at it.'}</h1>
-                <p class="muted">${Math.round(pct * 100)}% correct. Review the ones you missed below — each is from the slide shown.</p></div>
+                <p class="muted">${Math.round(pct * 100)}% correct. ${pct >= 1 ? 'Every question below is from the slide shown.' : 'Review the ones you missed below — each is from the slide shown.'}</p></div>
             </div>
             <div class="review">${r.review.map((x) => {
                 const v = x.verdict || (x.correct ? 'correct' : 'wrong');
@@ -666,10 +666,28 @@ const GUIDE = [
             + 'longest on Smarts. Summarising the same deck again is instant, and one you stopped carries on from where it stopped.',
         'It needs a brain: download one in Settings → <b>Brain</b> first. MrSOLIS writes the summary from your slides, '
             + 'but check anything important against them.']],
+    ['image', 'Draw it', [
+        'Type <b>/draw</b> and what you want to see, e.g. <b>/draw the water cycle</b>, <b>/draw the stages of mitosis</b> or '
+            + '<b>/draw a series circuit with a 12 V battery and two 4 Ω resistors</b>. Or just start your message with <b>draw</b>.',
+        'MrSOLIS picks the kind of diagram (a graph, steps, a cycle, a mind map, a timeline, a bar chart or a circuit) and fills '
+            + 'it in from the slide you are on. The app then draws it, so the lines, arrows and scales are exact. Check the words '
+            + 'and numbers against your slide.',
+        'Graphs of an equation are worked out exactly, with where the curve crosses each axis: <b>/draw y = x^2 − 4 from −3 to 3</b>. '
+            + 'These work even before you download a brain.',
+        'Click a drawing to open it large. <b>Save picture</b> keeps it as an image you can print or share.']],
+    ['eye', 'Imagine', [
+        'Type <b>/imagine</b> and an idea, e.g. <b>/imagine a cocoa farm in the rainy season</b>, <b>/imagine the surface of Mars</b> '
+            + 'or <b>/imagine a market in an old West African town</b>. MrSOLIS paints a picture of it on this computer in a few seconds.',
+        'With a brain, MrSOLIS first describes the picture from your words and the slide you are on; the description is shown '
+            + 'under the picture. <b>Try again</b> paints the same idea a new way.',
+        'Pictures help you imagine. They are not facts: places, things, plants, animals, people and scenes from the past come out '
+            + 'well, but the inside of things (a cell, an organ) and any words come out wrong. For an exact diagram, use <b>/draw</b>.',
+        'It needs its picture model once: Settings → <b>Imagine</b> (a 0.68 GB download). <b>Save picture</b> keeps a picture as an image.']],
     ['grid', 'Tools and commands', [
         '<b>Tools</b>: a scientific calculator, a step-by-step solver and a study timer.',
         'Type <b>/calculator</b> in the chat box to put the calculator on the board.',
         'Type <b>/summarize</b> for a PDF summary of the slides on the board — see <b>Summarise your slides</b>.',
+        'Type <b>/draw</b> for a diagram drawn exactly — see <b>Draw it</b>. Type <b>/imagine</b> for a picture of an idea — see <b>Imagine</b>.',
         'Type <b>/mx</b> to give the maths engine an exact command — e.g. <b>/mx find power given V = 240 V, I = 5 A</b>. It does exactly what you write, or tells you why it can’t. <b>/mx help</b> lists what it understands.',
         'Or type your question normally and press <b>Σ</b> (or <b>Make it exact</b> in the Solver): it is turned into a /mx command for you to check — fix anything that isn’t what you meant, then send it.',
         'CUSTOM-Mx, the engine behind <b>/mx</b> and <b>Σ</b>, is great, but not perfect. Behemoth Group will keep updating it to make it better.',
@@ -728,6 +746,11 @@ PAGES.settings = async () => {
         <div id="brain-cards"></div>
         <div id="online-brain"></div>
     </div>`;
+    // Imagine: the optional picture model for /imagine (card from mrsolis-brain.js)
+    html += `<div class="section-title" id="imagine">Imagine</div><div class="panel">
+        <p class="bc-intro">An optional picture model: MrSOLIS paints a picture of an idea to help you imagine it. It runs on this computer, so your ideas and pictures never leave it.</p>
+        <div id="imagine-card"></div>
+    </div>`;
     html += `<div class="section-title">AI engine</div><div class="panel"><dl class="kv">
         <dt>Status</dt><dd>${engine.ok ? (engine.brain_state === 'starting' ? 'Loading the brain…' : 'Online') : 'Offline' + (engine.error ? ' — ' + esc(engine.error) : '')}</dd>
         <dt>Runs on</dt><dd>${esc(engineName || '—')}</dd>
@@ -748,6 +771,7 @@ PAGES.settings = async () => {
     pageView.innerHTML = `<div class="page">${html}</div>`;
     mountBrainCards($('brain-cards'));
     mountOnlineBrain($('online-brain'));
+    mountImagine($('imagine-card'));
 
     const save = async (changes) => {
         try {
@@ -792,6 +816,12 @@ const CREDITS = [
         'Apache License 2.0, from their original authors', ['apache-2.0.txt']],
     ['llama.cpp', 'The AI engine that runs the brain on this computer.', 'MIT · LLVM OpenMP runtime: Apache 2.0 with LLVM exceptions',
         ['llama.cpp-mit.txt', 'llvm-openmp.txt'], 'github.com/ggml-org/llama.cpp'],
+    ['SDXS-512 DreamShaper', 'Imagine’s picture model: paints the pictures for /imagine (downloaded only if you choose it).',
+        'CreativeML Open RAIL++-M', ['sdxs-model-openrail-plus-plus-m.txt'],
+        'By IDKiro and others (SDXS: Real-Time One-Step Latent Diffusion Models with Image Conditions), distilled from '
+        + 'DreamShaper by Lykon; the GGUF file by concedo. The model licence forbids harmful uses (its Attachment A).'],
+    ['stable-diffusion.cpp', 'The engine that runs Imagine’s picture model on this computer.', 'MIT (with ggml, MIT)',
+        ['stable-diffusion.cpp-mit.txt'], 'github.com/leejet/stable-diffusion.cpp'],
     ['FFmpeg', 'Takes the sound and still frames out of videos you attach.', 'GNU LGPL 3.0 or later',
         ['lgpl-3.0.txt', 'gpl-3.0.txt'], 'FFmpeg n9.0.2, built without GPL or non-free parts (BtbN FFmpeg-Builds). '
         + 'Its source: github.com/FFmpeg/FFmpeg and ffmpeg.org. You may swap in your own FFmpeg build (runtime/ffmpeg). '

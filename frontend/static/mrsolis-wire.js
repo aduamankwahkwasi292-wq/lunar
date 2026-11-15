@@ -168,7 +168,10 @@ function mathify(t) {
         .replace(/[{}]/g, '')
         .replace(/\u0001/g, '{').replace(/\u0002/g, '}')
         .replace(/\^\(?(\d)\)?/g, (m, d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d])
-        .replace(/([0-9A-Za-z)])[ \t]*(?<!\*)\*(?!\*)[ \t]*([0-9A-Za-z(])/g, '$1 × $2');
+        // a * b and 2*x*y are multiplication; " *word* " is an italic word (Smarts writes those: "the current must
+        // flow *through* the meter" read "flow × through × the meter", 2026-11-14) — so only the same spacing on both sides
+        .replace(/([0-9A-Za-z)])[ \t]+\*[ \t]+(?=[0-9A-Za-z(])/g, '$1 × ')
+        .replace(/([0-9A-Za-z)])(?<!\*)\*(?!\*)(?=[0-9A-Za-z(])/g, '$1 × ');
 }
 
 function inlineMd(s) {
@@ -322,6 +325,8 @@ function partHTML(p) {
     }
     if (p.kind === 'error') return `<div class="msg-error">${escapeHtml(p.text)}</div>`;
     if (p.kind === 'summary') return summaryHTML(p);
+    if (p.kind === 'drawing') return drawingHTML(p);
+    if (p.kind === 'picture') return pictureHTML(p);
     const cls = p.kind === 'lesson' ? 'lesson' : 'msg-assistant';
     // a brain that sees takes a few seconds over a picture before its first word
     if (live && !p.text.trim()) {
@@ -824,6 +829,8 @@ const COMMANDS = [
     { name: 'find', alias: ['open'], arg: 'file name', desc: 'Find your slides on this computer by name and open them', run: (q) => findAndOpen(q) },
     { name: 'custom-mx', alias: ['mx', 'cmx'], arg: 'command', desc: 'Talk to the maths engine directly — e.g. find power given V = 240 V, I = 5 A (or: help)', run: (q) => mxCommand(q) },
     { name: 'summarize', alias: ['summarise', 'summary'], desc: 'MrSOLIS summarises these slides, one at a time, into a PDF', run: () => summaryCommand() },
+    { name: 'draw', alias: ['plot', 'sketch', 'diagram'], arg: 'what to draw', desc: 'A diagram drawn exactly: a graph, steps, a cycle, a mind map, a timeline, bars or a circuit', run: (q) => drawCommand(q) },
+    { name: 'imagine', alias: ['picture', 'visualise', 'visualize', 'paint'], arg: 'what to picture', desc: 'A picture of an idea, painted on this computer to help you imagine it (Settings → Imagine)', run: (q) => imagineCommand(q) },
 ];
 const cmdMenu = $('cmd-menu');
 const FIND = { q: '', results: [], sel: 0, timer: null, seq: 0 };   // live /find results under the chat box
@@ -845,7 +852,7 @@ function runCommand(text) {
     if (!m) return false;
     const cmd = m[1] ? findCommand(m[1]) : null;
     const arg = (m[2] || '').trim();
-    if (!cmd) { hideCmdMenu(); chatInput.value = ''; showToast(`No command “/${m[1]}” — try /calculator, /find, /mx or /summarize`, 3500); return true; }
+    if (!cmd) { hideCmdMenu(); chatInput.value = ''; showToast(`No command “/${m[1]}” — try /calculator, /find, /mx, /summarize, /draw or /imagine`, 3500); return true; }
     if (cmd.arg && !arg) { chatInput.value = `/${cmd.name} `; showCmdMenu(); chatInput.focus(); return true; }
     hideCmdMenu();
     chatInput.value = '';
@@ -1020,6 +1027,182 @@ async function summaryCommand() {
     }
 }
 
+/** Draw it (/draw): the brain plans a study diagram — a graph, steps, a cycle, a mind map, a timeline, bars or a
+ *  circuit — and code draws it exactly (backend drawit.py), so lines, arrows and scales are right and labels are never
+ *  painted gibberish (the user's choice over a picture model, 2026-11-14). A typed equation needs no brain at all. */
+async function drawCommand(what, shown) {
+    what = (what || '').trim();
+    if (!what) return;
+    S.parts.push({ kind: 'user', text: shown || `/draw ${what}` });
+    const part = { kind: 'drawing', state: 'busy' };
+    S.parts.push(part);
+    renderTalk(true);
+    try {
+        const r = await fetch('/api/draw', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request: what, session_id: S.sessionId || null, slide_index: S.sessionId ? S.index : null }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || `error ${r.status}`);
+        Object.assign(part, { state: 'done', title: d.title, svg: d.svg, caption: d.caption, drawn: d.kind });
+    } catch (e) {
+        Object.assign(part, { state: 'error', error: e.message });
+    }
+    if (S.parts.includes(part)) renderTalk(true);
+}
+
+function drawingHTML(p) {
+    if (p.state === 'busy') return `<div class="msg-assistant">${thinking('MrSOLIS is drawing…')}</div>`;
+    if (p.state !== 'done') return `<div class="msg-error">${escapeHtml(p.error || 'That couldn’t be drawn.')}</div>`;
+    const i = S.parts.indexOf(p);
+    return `<div class="msg-assistant draw-card"><div class="draw-title">${escapeHtml(p.title || 'Drawing')}</div>` +
+        `<button type="button" class="draw-svg" data-draw="open:${i}" title="Open it large">${p.svg}</button>` +
+        `<div class="draw-cap">${escapeHtml(p.caption || '')}</div>` +
+        `<div class="part-read"><button type="button" data-draw="save:${i}"><svg class="ico"><use href="#i-download"/></svg>Save picture</button>` +
+        `<button type="button" data-draw="open:${i}"><svg class="ico"><use href="#i-focus"/></svg>Open large</button></div></div>`;
+}
+
+/** The drawing large, over everything; a click or Esc closes it. */
+function openDrawing(p) {
+    const o = document.createElement('div');
+    o.className = 'draw-full';
+    o.innerHTML = `<div class="draw-full-box"><b>${escapeHtml(p.title || '')}</b>${p.svg}<span>Click anywhere or press Esc to close</span></div>`;
+    const close = () => { o.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+    o.addEventListener('click', close);
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(o);
+}
+
+/** Save picture: the drawing as a PNG, black on white (it prints), with its title on top. */
+function saveDrawing(p) {
+    const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(p.svg);
+    if (!m) return;
+    const w = +m[1], h = +m[2], pad = 24, scale = 2;
+    const img = new Image();
+    img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = (w + pad * 2) * scale;
+        c.height = (h + pad * 2 + 34) * scale;
+        const g = c.getContext('2d');
+        g.fillStyle = '#ffffff';
+        g.fillRect(0, 0, c.width, c.height);
+        g.scale(scale, scale);
+        g.fillStyle = '#111111';
+        g.font = '700 18px "Segoe UI", Arial, sans-serif';
+        g.fillText(p.title || '', pad, pad + 16);
+        g.drawImage(img, pad, pad + 34, w, h);
+        c.toBlob((blob) => {
+            if (!blob) { showToast('The picture couldn’t be saved'); return; }
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${(p.title || 'Drawing').replace(/[\\/:*?"<>|]+/g, '').slice(0, 60) || 'Drawing'}.png`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        }, 'image/png');
+    };
+    img.onerror = () => showToast('The picture couldn’t be saved');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(p.svg.replace('<svg ', '<svg color="#111111" '));
+}
+
+/** Imagine (/imagine): the brain describes a picture of the idea and a small picture model on this computer paints
+ *  it (backend imagine.py — an optional download in Settings → Imagine). A picture to imagine with, not a diagram:
+ *  the card says so, and exact diagrams are /draw's job. Try again paints the same description with a new seed. */
+async function imagineCommand(what, shown) {
+    what = (what || '').trim();
+    if (!what) return;
+    S.parts.push({ kind: 'user', text: shown || `/imagine ${what}` });
+    const part = { kind: 'picture', state: 'busy' };
+    S.parts.push(part);
+    renderTalk(true);
+    await paintPicture(part, { request: what, session_id: S.sessionId || null, slide_index: S.sessionId ? S.index : null });
+}
+
+async function paintPicture(part, body) {
+    try {
+        const r = await fetch('/api/imagine', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body) });
+        const d = await r.json();
+        if (!r.ok) { const err = new Error(d.detail || `error ${r.status}`); err.status = r.status; throw err; }
+        const bytes = Uint8Array.from(atob(d.image), (ch) => ch.charCodeAt(0));
+        if (part.src) URL.revokeObjectURL(part.src);
+        part.blob = new Blob([bytes], { type: 'image/png' });   // a short blob: link, so redrawing the chat stays light
+        Object.assign(part, { state: 'done', src: URL.createObjectURL(part.blob), title: d.title, picture: d.picture,
+            prompt: d.prompt, caption: d.caption, error: '' });
+    } catch (e) {
+        if (part.src) { part.state = 'done'; showToast(e.message, 4500); }     // Try again failed: keep the picture
+        else Object.assign(part, { state: 'error', error: e.message, needsModel: e.status === 409 });
+    }
+    if (S.parts.includes(part)) renderTalk(true);
+}
+
+function pictureHTML(p) {
+    const i = S.parts.indexOf(p);
+    if (p.state === 'busy' && !p.src) return `<div class="msg-assistant">${thinking('MrSOLIS is imagining…')}</div>`;
+    if (p.state === 'error') {
+        return `<div class="msg-error">${escapeHtml(p.error || 'That couldn’t be imagined.')}` +
+            (p.needsModel ? `<div class="part-read"><button type="button" data-pic="get:${i}"><svg class="ico"><use href="#i-download"/></svg>Get Imagine</button></div>` : '') +
+            '</div>';
+    }
+    const busy = p.state === 'busy';
+    return `<div class="msg-assistant draw-card pic-card"><div class="draw-title">${escapeHtml(p.title || 'Imagined')}</div>` +
+        `<button type="button" class="pic-img${busy ? ' busy' : ''}" data-pic="open:${i}" title="Open it large">` +
+        `<img src="${p.src}" alt="${escapeHtml(p.picture || p.title || 'Imagined picture')}"></button>` +
+        (p.picture ? `<div class="pic-desc">“${escapeHtml(p.picture)}”</div>` : '') +
+        `<div class="draw-cap">${escapeHtml(p.caption || '')}</div>` +
+        `<div class="part-read"><button type="button" data-pic="save:${i}"><svg class="ico"><use href="#i-download"/></svg>Save picture</button>` +
+        `<button type="button" data-pic="open:${i}"><svg class="ico"><use href="#i-focus"/></svg>Open large</button>` +
+        `<button type="button" data-pic="again:${i}"${busy ? ' disabled' : ''}><svg class="ico"><use href="#i-reset"/></svg>${busy ? 'Painting…' : 'Try again'}</button></div></div>`;
+}
+
+/** The picture large, over everything; a click or Esc closes it. */
+function openPicture(p) {
+    const o = document.createElement('div');
+    o.className = 'draw-full';
+    o.innerHTML = `<div class="draw-full-box pic-full"><b>${escapeHtml(p.title || '')}</b><img src="${p.src}" alt=""><span>Click anywhere or press Esc to close</span></div>`;
+    const close = () => { o.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+    o.addEventListener('click', close);
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(o);
+}
+
+function savePicture(p) {
+    if (!p.blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(p.blob);
+    a.download = `${(p.title || 'Imagined').replace(/[\\/:*?"<>|]+/g, '').slice(0, 60) || 'Imagined'}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function picturePart(btn) {
+    const [act, i] = btn.dataset.pic.split(':');
+    const part = S.parts[+i];
+    if (!part) return;
+    if (act === 'get') {                                 // Settings, scrolled to its Imagine card once it is drawn
+        go('settings');
+        let tries = 0;
+        const seek = () => {
+            const t = document.getElementById('imagine');
+            if (t) t.scrollIntoView({ block: 'start' });
+            else if (++tries < 40) setTimeout(seek, 100);
+        };
+        setTimeout(seek, 50);
+        return;
+    }
+    if (!part.src) return;
+    if (act === 'open') openPicture(part);
+    else if (act === 'save') savePicture(part);
+    else if (act === 'again' && part.state !== 'busy') {
+        part.state = 'busy';
+        renderTalk(false);
+        paintPicture(part, { prompt: part.prompt, title: part.title, picture: part.picture });
+    }
+}
+
 /** "Make it exact" (Σ): a question in everyday words → a /CUSTOM-Mx command the student checks before sending.
  *  Code copies every number; CUSTOM-Mx's rules, else the brain, only say what each one is (main.mx_draft). */
 async function draftExact(text) {
@@ -1089,6 +1272,12 @@ function sendChat() {
     const typed = chatInput.value.trim();
     if (typed.startsWith('/') && runCommand(typed)) return;      // a command, not a question
     if (S.busy) { stopWriting(); return; }          // the send button doubles as Stop while writing
+    const noAttachment = !(typeof PIC !== 'undefined' && PIC.url) && !(typeof VID !== 'undefined' && VID.id);
+    if (noAttachment && /^(draw|sketch)\s+\S/i.test(typed)) {     // "draw the water cycle": Draw it, not a chat answer
+        chatInput.value = '';
+        drawCommand(typed, typed);
+        return;
+    }
     if (typeof stopDictation === 'function') stopDictation();   // sending ends Transcription (mrsolis-voice.js)
     const text = chatInput.value.trim();
     const hasPic = typeof PIC !== 'undefined' && PIC.url;          // a picture in the chat box (mrsolis-brain.js)
@@ -1314,6 +1503,18 @@ $('cr-note-btn').addEventListener('click', () => {
     saveNote(text, 'highlight');
 });
 talkArea.addEventListener('click', (e) => {
+    const dw = e.target.closest('[data-draw]');
+    if (dw) {                                            // a drawing: open it large, or save it as a picture
+        const [act, i] = dw.dataset.draw.split(':');
+        const part = S.parts[+i];
+        if (part && part.svg) (act === 'save' ? saveDrawing : openDrawing)(part);
+        return;
+    }
+    const pic = e.target.closest('[data-pic]');
+    if (pic) {                                           // an imagined picture: open, save, paint again, get Imagine
+        if (!pic.disabled) picturePart(pic);
+        return;
+    }
     const sum = e.target.closest('[data-sum]');
     if (sum) {                                           // /summarize: export the PDF, or stop the run
         const [act, job] = sum.dataset.sum.split(':');

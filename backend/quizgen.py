@@ -332,6 +332,14 @@ _ADMIN_Q = re.compile(
     r"|\bname of (the|this) (university|institution|college|school|department|faculty|course|lecturer|programme|program)\b")
 
 
+def _plain(text: str) -> str:
+    """Quiz text as the quiz screen shows it — plain. Smarts (Gemma, since 3.1.2) writes LaTeX and **bold** even in
+    quiz JSON, and the screen showed "$R_1$", "**rate of transfer**" and "R1=2 ext ohms" as typed (2026-11-14)
+    — summary.plain_text, shared with Draw it's labels."""
+    from backend.summary import plain_text
+    return plain_text(text)
+
+
 async def write(slide_text: str, avoid: list, style_no: int, avoid_answers: list = ()) -> dict | None:
     """One new, checked question about this slide that isn't like any in `avoid` (questions) and
     doesn't test a fact already tested (`avoid_answers`: "price rises, quantity falls" twice), or None."""
@@ -351,14 +359,14 @@ async def write(slide_text: str, avoid: list, style_no: int, avoid_answers: list
             data = json.loads(raw)
         except Exception:
             continue
-        q, a = str(data.get("question", "")).strip(), str(data.get("answer", "")).strip()
+        q, a = _plain(str(data.get("question", ""))).strip(), _plain(str(data.get("answer", ""))).strip()
         q = _SLIDE_REF.sub("", q).strip()
         q = q[:1].upper() + q[1:]
         numeric = data.get("kind") == "numeric"
         if len(q) < 8 or not a or _CHOICE_Q.search(q) or _ADMIN_Q.search(q) or any(_alike(q, old) for old in avoid) \
                 or (not numeric and any(_alike(a, old) for old in avoid_answers if old)):
             continue                                       # (two sums can share an answer like "2 A")
-        points = [str(p).strip() for p in (data.get("points") or []) if str(p).strip()][:3] or [a]
+        points = [_plain(str(p)).strip() for p in (data.get("points") or []) if str(p).strip()][:3] or [a]
         if len(a.split()) <= 8:          # a short answer is its own key point (its "points" wandered off:
             points = [a]                 # "Where is O2 made?" — 3 points, one about the Calvin cycle)
         out = {"q": q, "a": a, "points": points, "kind": "numeric" if data.get("kind") == "numeric" else "text",

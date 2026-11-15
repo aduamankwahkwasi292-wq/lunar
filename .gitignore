@@ -4,9 +4,10 @@
 models/
 *.gguf
 
-# The AI engine and FFmpeg programs (fetched, pinned and checked, with scripts/fetch_runtime.py).
+# The AI engine, FFmpeg and Imagine's picture engine (fetched, pinned and checked, with scripts/fetch_runtime.py).
 # Kept: runtime/ffmpeg/README-MrSOLIS.txt and COPYING.GPLv3.txt.
 runtime/llama.cpp/
+runtime/sd.cpp/
 runtime/ffmpeg/*
 !runtime/ffmpeg/README-MrSOLIS.txt
 !runtime/ffmpeg/COPYING.GPLv3.txt

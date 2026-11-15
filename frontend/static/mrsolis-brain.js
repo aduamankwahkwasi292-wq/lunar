@@ -133,6 +133,89 @@ function mountBrainCards(el) {
     brainRefresh();
 }
 
+// ── Imagine (Settings → Imagine): the optional picture model ─────────
+// One card: what /imagine does and doesn't do, the 0.68 GB download with its progress, Remove (backend imagine.py).
+const IMAGINE = { st: null, poll: null, mounts: new Set(), wasDownloading: false };
+
+function imagineCardHTML(st) {
+    if (!st.engine) return '<p class="muted">The picture engine is missing from this install, so Imagine can’t run here.</p>';
+    const dl = st.download || {};
+    let actions;
+    if (dl.state === 'downloading') {
+        const pct = dl.total ? Math.floor((dl.done / dl.total) * 100) : 0;
+        actions = `<div class="bc-progress"><i style="width:${pct}%"></i></div>
+            <div class="bc-row"><span class="muted">${pct}% · ${gbText(dl.done / 1e9)} of ${gbText(dl.total / 1e9)}</span>
+            <button type="button" class="btn small" data-imagine="cancel">Cancel</button></div>`;
+    } else if (st.installed) {
+        actions = `<div class="bc-row"><span class="bc-inuse">${icon('check')}Ready — type /imagine and an idea</span>
+            <button type="button" class="btn small ghost" data-imagine="remove">${icon('trash')}Remove</button></div>`;
+    } else {
+        actions = `<div class="bc-row"><button type="button" class="btn small" data-imagine="get">${icon('download')}Download · ${gbText(st.download_gb)}</button></div>`;
+    }
+    const failed = !st.installed && (dl.state === 'error' || dl.state === 'cancelled')
+        ? `<div class="bc-error">${dl.state === 'error' ? `The download stopped: ${esc(dl.error || 'no connection')}.` : 'Download cancelled.'} Press Download to carry on from where it stopped.</div>` : '';
+    const measured = st.seconds
+        ? `<div class="bc-measured">${icon('check')}Measured on this computer: the last picture took ${st.seconds} seconds to paint</div>` : '';
+    return `<div class="bcards"><article class="bcard">
+        <header><h3>Imagine</h3></header>
+        <p class="bc-tagline">Pictures of ideas, painted on this computer</p>
+        <p class="bc-for">Type /imagine and an idea — a cocoa farm in the rainy season, the solar system, a market long ago — and MrSOLIS paints a picture to help you imagine it.</p>
+        <dl class="bc-est">
+            <dt>Paints</dt><dd>about 6–15 seconds a picture</dd>
+            <dt>Memory</dt><dd>needs about 1 GB free while it paints</dd>
+            <dt>Download</dt><dd>${gbText(st.download_gb)}, once</dd>
+        </dl>
+        <ul class="bc-facts"><li>Good at places, things, plants, animals, people and scenes from the past</li>
+            <li>Not exact: the inside of things (a cell, an organ) and any words come out wrong — type /draw for an exact diagram</li>
+            <li>Paints only what suits a study app, and nothing leaves this computer</li></ul>
+        ${measured}
+        <p class="bc-licence">Estimates, not promises · OpenRAIL++ licence</p>
+        ${failed}${actions}
+    </article></div>`;
+}
+
+async function imagineRefresh() {
+    try { IMAGINE.st = await api('/api/imagine/status'); } catch (e) { return null; }
+    for (const el of [...IMAGINE.mounts]) {
+        if (!el.isConnected) { IMAGINE.mounts.delete(el); continue; }
+        el.innerHTML = imagineCardHTML(IMAGINE.st);
+    }
+    const dl = IMAGINE.st.download || {};
+    if (dl.state === 'downloading') IMAGINE.wasDownloading = true;
+    else if (IMAGINE.wasDownloading && IMAGINE.st.installed) {
+        IMAGINE.wasDownloading = false;
+        showToast('Imagine is ready — type /imagine and an idea');
+    }
+    clearTimeout(IMAGINE.poll);
+    if (dl.state === 'downloading' && IMAGINE.mounts.size) IMAGINE.poll = setTimeout(imagineRefresh, 1000);
+    return IMAGINE.st;
+}
+
+async function imagineAct(btn) {
+    const what = btn.dataset.imagine;
+    try {
+        if (what === 'get') IMAGINE.st = await api('/api/imagine/download', { method: 'POST' });
+        else if (what === 'cancel') await api('/api/imagine/cancel', { method: 'POST' });
+        else if (what === 'remove') {
+            if (!armed(btn, 'Remove it?')) return;
+            await api('/api/imagine', { method: 'DELETE' });
+            showToast('Imagine removed');
+        }
+    } catch (e) { showToast(e.message, 4500); }
+    imagineRefresh();
+}
+
+/** Draw the Imagine card into `el` and keep it live while it downloads. */
+function mountImagine(el) {
+    IMAGINE.mounts.add(el);
+    el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-imagine]');
+        if (b && !b.disabled) imagineAct(b);
+    });
+    if (IMAGINE.st) el.innerHTML = imagineCardHTML(IMAGINE.st);
+    imagineRefresh();
+}
+
 // ── the chooser on the first start after an update ───────────────────
 function showBrainPicker() {
     if ($('brain-picker')) return;

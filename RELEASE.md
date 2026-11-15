@@ -20,7 +20,8 @@ licence-check step (which moves gate.py aside) never touches the working folder:
 B=/c/Users/aduam/Downloads/lunar/build/src
 git clone -q . "$B"                                    # the committed code only
 mkdir -p "$B/models" "$B/runtime"                      # (models/ isn't in git: without this, cp put voice's files in models/)
-cp -r models/voice "$B/models/"; cp -r runtime/llama.cpp runtime/ffmpeg "$B/runtime/"
+cp -r models/voice "$B/models/"; cp -r runtime/llama.cpp runtime/ffmpeg runtime/sd.cpp "$B/runtime/"
+# (runtime/sd.cpp = Imagine's picture engine, 2026-11-14; missing here? python scripts/fetch_runtime.py --only sd.cpp)
 MSYS_NO_PATHCONV=1 cmd /c mklink /J "$(cygpath -w "$B/desktop/node_modules")" "$(cygpath -w "$PWD/desktop/node_modules")"
 # (or PowerShell: New-Item -ItemType Junction -Path <B>\desktop\node_modules -Target <here>\desktop\node_modules)
 # Before deleting an old build\src: remove that junction first (cmd /c rmdir), or the delete reaches node_modules.
@@ -71,7 +72,7 @@ publish only when every stage passes:
 | Stage | Check | Pass |
 |---|---|---|
 | builds | PyInstaller and electron-builder (above) | both finish |
-| the code | `python -m backend.start_test` · `python -m backend.summary_test` | 3/3 · all right |
+| the code | `python -m backend.start_test` · `python -m backend.summary_test` · `python -m backend.drawit_test` · `python -m backend.imagine_test` | 3/3 · all right · all right · all right |
 | installer → first launch → engine → brain → answer | in `build\src`: `python scripts/smoke_packaged.py desktop/release/Lunar-Setup-x.y.z.exe --licence ..\test-profile\licence.json --brains ..\test-profile` | every stage PASS |
 | Store package | the same script with `--store` (next section) | PASS |
 | a real install | the installer on another PC (no Python, no tools), then open MrSOLIS from the desktop icon | MrSOLIS opens, picks a brain, answers |

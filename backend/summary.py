@@ -121,6 +121,20 @@ def plain_maths(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", s)
 
 
+_JSON_ESCAPED = {"\t": "\\t", "\x0c": "\\f", "\x08": "\\b", "\r": "\\r"}
+
+
+def plain_text(text: str) -> str:
+    """A short line the brain wrote inside JSON (a quiz question, a diagram label) as a screen shows it: plain.
+    Smarts (Gemma, since 3.1.2) writes LaTeX and **bold** even there, and its LaTeX meets JSON's escapes on the way
+    in: "\\text{ ohms}" arrives as a tab + "ext{ ohms}" ("R1=2 ext ohms" on screen, 2026-11-14), "\\frac" as a form
+    feed + "rac", "\\neq" as a new line + "eq". Those characters never belong in such a line, so they go back to the
+    command they were before plain_maths reads it."""
+    text = re.sub(r"[\t\x0c\x08\r](?=[A-Za-z])", lambda m: _JSON_ESCAPED[m.group(0)], text or "")
+    text = re.sub(r"\n(?=(?:eq|u|abla|ot)\b)", r"\\n", text)
+    return re.sub(r"\*\*|__", "", plain_maths(text))
+
+
 # ── the brain's text → document lines ────────────────────────────────────────────────────────────────────────────────
 _PREAMBLE = re.compile(r"(?i)^\W*(here('s| is| are)\b|summary\b|slide \d+\b|this slide\b.*:\s*$|key points\b)[^\n]*:\s*$")
 _BULLET = re.compile(r"^\s*(?:[-*•–·]|\d+[.)])\s+")

@@ -90,6 +90,38 @@ loads:
   (decks, subjects, notes, quizzes, history events, settings). One deck per file: uploads are fingerprinted
   (sha256), a re-upload reopens the existing deck, and duplicates are merged on startup. Decks reopen after a restart from
   `DATA_DIR/study-cache/slides/` (never `cache/` — on Windows that is Electron's own browser `Cache`).
+  **Draw it (/draw, 2026-11-14; also any chat message that starts with "draw"/"sketch").** The user saw a 1B image
+  model (DeepSeek Janus-Pro) and asked for visuals of concepts; picture models were turned down (minutes per image on
+  a laptop CPU, PyTorch in the engine, garbled labels a student would learn from), so the brain only PLANS a diagram
+  and code DRAWS it: `backend/drawit.py` — kinds graph, steps, cycle, mindmap, timeline, bars, circuit (series with a
+  voltmeter across a part, or parallel with a main ammeter); the brain picks the kind (`hint()` first: "cycle",
+  "circuit"… need no call) and fills a per-kind JSON schema with the current slide as context; labels cleaned with
+  `summary.plain_text` + x², 2t, ×; SVG in currentColor. A typed equation anywhere in the request ("graph of v
+  against t for v = 5 + 2t") is drawn by `direct_graph` with NO brain (works before any brain is downloaded): our own
+  parser `_Parser` (never eval), curve split at asymptotes, x-intercepts and y-intercept found by code and named in
+  the caption ("Crosses the t-axis…"). main.py `/api/draw` (inside `_interactive()`); mrsolis-wire.js `drawCommand`
+  / `drawingHTML` (card: Open large overlay, Save picture = PNG black on white via canvas). Tested 2026-11-14 on
+  Middler: equation 0.03 s, brain diagrams 12–28 s; Middler sometimes adds a part the slide lacks or gets a date
+  wrong (the caption says to check). `python -m backend.drawit_test` (44/44) is in the RELEASE.md gate.
+  **Imagine (/imagine, 2026-11-14 — the user: "LET'S DO Imagine NOW", after Draw it).** An optional picture model:
+  `backend/imagine.py` — the brain writes a one-sentence picture description (schema: title, picture, style
+  photo|3d model|digital art, unsuitable) from the request + current slide; code scrubs what the painter can't do
+  (cross-section/diagram/labels), adds "fully clothed in modest clothes" when people appear, adds the style words, and
+  stable-diffusion.cpp's `sd-cli` paints 512 x 512 in ONE step (SDXS-512 DreamShaper Q8_0 GGUF, OpenRAIL++, concedo's
+  repo pinned to a revision + SHA-256; 0.68 GB download into DATA_DIR/imagine from Settings → Imagine). sd-cli runs once
+  per picture with `--mmap` (private memory 0.83 GB instead of 1.48) and closes, so memory goes back; job object +
+  EcoQoS off via brain._bind_to_us. Measured on the i5-13420H: paint 6–7 s (8 threads), with Middler's description
+  12–17 s, Try again (same words, new seed, no brain) ~7 s. Without a brain the student's words are painted.
+  Safety: `_UNSUITABLE` regex on the request and on the brain's words (allows "sex cells", "rapeseed", "red blood
+  cells"), the brain's unsuitable flag, people clothed. Good at places/objects/animals/people/history scenes; cells,
+  organs, processes (water cycle) come out as pretty guesses and it can't write — the card and How to use say so.
+  The engine (runtime/sd.cpp, 46 MB, 17 MB zipped) SHIPS IN THE APP (scripts/fetch_runtime.py pin, package.json
+  extraResources): a later-downloaded exe isn't covered by the Store package signature, so Smart App Control would
+  block it. Pictures travel as base64 PNG and live in the chat as blob: URLs (nothing saved on disk). Endpoints:
+  /api/imagine (+ prompt/title/picture for Try again), /api/imagine/status|download|cancel, DELETE /api/imagine.
+  Licences: frontend/static/licences/sdxs-model-openrail-plus-plus-m.txt + stable-diffusion.cpp-mit.txt, credits
+  entries, and terms 5.3/6.4 name the picture model. `python -m backend.imagine_test` (31/31; with
+  LUNAR_IMAGINE_MODEL=<gguf> it paints one picture) is in the RELEASE.md gate.
   **/summarize (2026-11-14) replaced the rule-built Exam Crib Sheet** (Notes, Tools → Formula sheet, the notes
   export; `questions.build_crib_sheet` and `crib_test` are gone). The user: the brain summarises the slides one at a
   time, code pulls everything into a file, the student gets it in the chat, and while it runs it shows "Working,

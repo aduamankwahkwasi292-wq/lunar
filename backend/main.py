@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field
 
 from backend.file_processor import extract_rich_slides, slide_plain_text
-from backend import local_llm, classroom, file_processor, questions, voice, finder, brain, quizgen, mathengine, video, boardclass, summary
+from backend import local_llm, classroom, file_processor, questions, voice, finder, brain, quizgen, mathengine, video, boardclass, summary, drawit, imagine
 from backend import gate, guard
 from backend.mathengine import command as mx_command
 from backend.sqe import api as sqe
@@ -1636,6 +1636,98 @@ async def notes_export(deck_id: str):
 # the run waits between slides while one is being written. Each slide's summary is cached (summary.Cache), so a
 # stopped run carries on where it stopped and a second /summarize of the same deck is instant.
 _summaries = {}
+
+
+# ---- Draw it (/draw) ---------------------------------------------------
+# The brain picks the kind of study diagram and fills in its words and numbers; drawit.py draws it as SVG. Placed
+# here, before /summarize's classes, only because both are chat commands.
+class DrawRequest(BaseModel):
+    request: str
+    session_id: str | None = None
+    slide_index: int | None = None
+
+
+@app.post("/api/draw")
+async def draw_it(req: DrawRequest):
+    """Draw it (/draw): the brain plans a study diagram, code draws it exactly (drawit.py). A typed equation is drawn
+    without the brain, so graphs work even before a brain is downloaded."""
+    request = (req.request or "").strip()[:400]
+    if not request:
+        raise HTTPException(status_code=400, detail="Say what to draw — e.g. /draw the water cycle.")
+    direct = await asyncio.to_thread(drawit.direct_graph, request)
+    if direct:
+        return direct
+    if not brain.active():
+        raise HTTPException(status_code=409, detail="Download a brain first (Settings → Brain) to draw that. A graph "
+                                                    "of an equation works now: /draw y = x^2 - 4 from -3 to 3.")
+    slide, n, total = "", 0, 0
+    session = _get_session(req.session_id) if req.session_id else None
+    if session and session.get("slides"):
+        slides = session["slides"]
+        idx = min(max(int(req.slide_index or 0), 0), len(slides) - 1)
+        slide, n, total = _grounding_text(slides[idx]), idx + 1, len(slides)
+    try:
+        async with _interactive():
+            return await drawit.make(request, slide, n, total)
+    except drawit.DrawError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except local_llm.LocalLLMError as e:
+        raise HTTPException(status_code=503, detail=f"The brain stopped: {e}")
+
+
+# ---- Imagine (/imagine) -------------------------------------------------
+# The brain describes a picture of the idea; a small picture model on this computer paints it (imagine.py) — an
+# optional 0.68 GB download from Settings → Imagine. Without a brain the student's own words are painted.
+class ImagineRequest(BaseModel):
+    request: str = ""
+    session_id: str | None = None
+    slide_index: int | None = None
+    prompt: str | None = None            # "Try again": the same description, a new seed — no brain needed
+    title: str | None = None
+    picture: str | None = None
+
+
+@app.post("/api/imagine")
+async def imagine_it(req: ImagineRequest):
+    try:
+        async with _interactive():
+            if req.prompt:
+                return await imagine.again(req.prompt[:400], req.title or "", req.picture or "")
+            slide, n, total = "", 0, 0
+            session = _get_session(req.session_id) if req.session_id else None
+            if session and session.get("slides"):
+                slides = session["slides"]
+                idx = min(max(int(req.slide_index or 0), 0), len(slides) - 1)
+                slide, n, total = _grounding_text(slides[idx]), idx + 1, len(slides)
+            return await imagine.make((req.request or "")[:400], slide, n, total)
+    except imagine.ImagineError as e:
+        code = 409 if str(e) == imagine.NOT_INSTALLED else 422
+        raise HTTPException(status_code=code, detail=str(e))
+    except local_llm.LocalLLMError as e:
+        raise HTTPException(status_code=503, detail=f"The brain stopped: {e}")
+
+
+@app.get("/api/imagine/status")
+async def imagine_status():
+    return imagine.status()
+
+
+@app.post("/api/imagine/download")
+async def imagine_download():
+    imagine.start_download()
+    return imagine.status()
+
+
+@app.post("/api/imagine/cancel")
+async def imagine_cancel():
+    imagine.cancel()
+    return imagine.status()
+
+
+@app.delete("/api/imagine")
+async def imagine_remove():
+    await asyncio.to_thread(imagine.remove)
+    return imagine.status()
 
 
 class SummaryStart(BaseModel):

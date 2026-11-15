@@ -65,6 +65,15 @@ def main() -> int:
     if S.file_name("EE 172: Circuits.pdf") != "EE 172 Circuits - summary.pdf":
         bad += 1
         print("NAME  ", S.file_name("EE 172: Circuits.pdf"))
+    from backend import quizgen                 # quiz text is cleaned the same way (Smarts writes LaTeX there too)
+    got = quizgen._plain(r"Two equal resistors, $R_1$ and $R_2$: the **rate of transferring energy** is $P = I^{2} R$.")
+    if got != "Two equal resistors, R1 and R2: the rate of transferring energy is P = I^2 R.":
+        bad += 1
+        print("QUIZ  ", got)
+    got = quizgen._plain("R1=2 	ext{ ohms} and rac{V}{R} 	imes 2")    # LaTeX after JSON read 	,  as escapes
+    if got != "R1=2 ohms and V/R × 2":
+        bad += 1
+        print("QUIZ2 ", repr(got))
 
     with tempfile.TemporaryDirectory() as d:
         c = S.Cache(os.path.join(d, "deck"))
@@ -89,7 +98,7 @@ def main() -> int:
             bad += 1
             print("PDF   pages", pages, "missing", missing, "bytes", os.path.getsize(path))
 
-    total = len(MATHS) + len(CLEAN) + len(WORTH) + 4
+    total = len(MATHS) + len(CLEAN) + len(WORTH) + 6
     print(f"summary_test: {total - bad}/{total} right")
     return 1 if bad else 0
 
