@@ -58,6 +58,13 @@ paths** (`mklink /J` refused a relative `--brains ../test-profile`), and `check_
 "missing" names with the old and the new dev-modules.json (aliases and dynamic names under Python 3.14: os.path,
 collections.abc, cv2.*, rapidocr's ch_ppocr_*) — compare against the previous list rather than expect "none".
 
+**3.1.3 (2026-11-15, commit edb88fb):** Draw it + Imagine + the quiz fixes. Gate passed: start_test 3/3,
+summary_test 29/29, drawit_test 44/44, imagine_test 31/31, smoke_packaged 5/5 (Smarts ready in 21 s, answered offline
+in 7 s), Store package 3/3, check_build ALL GOOD, check_modules the same known names, and `build\imagine_packaged_test.py`
+7/7 (the installed engine draws an equation, finds runtime/sd.cpp and paints a picture in ~11 s with no brain).
+Installer 503 MB (the picture engine adds ~13 MB), Store package 624 MB. Lesson: smoke_packaged's paths need
+**backslashes** as well as being full — `mklink /J` refused `C:/…/test-profile\brains`.
+
 Bump `version` in desktop/package.json first (`npm version 3.0.1 --no-git-tag-version`), commit and push, and tag
 the release at that commit.
 
